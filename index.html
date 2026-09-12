@@ -29,15 +29,8 @@
     <section class="card">
       <h2 class="card-title"><span class="step">1</span> Vyber prvek</h2>
       <div class="tools" id="tools"></div>
-    </section>
-
-    <section class="card">
-      <h2 class="card-title">Oprava</h2>
-      <div class="btnrow">
-        <button type="button" class="btn" id="btn-undo">&#8630; Zpět</button>
-        <button type="button" class="btn" id="btn-redo">&#8631; Vpřed</button>
-      </div>
-      <button type="button" class="btn btn-danger full" id="btn-clear">Vymazat celé pole</button>
+      <input type="file" id="icon-input" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" hidden>
+      <p class="card-note" id="icons-note"></p>
     </section>
   </aside>
 
@@ -45,6 +38,11 @@
   <main class="col col-stage">
     <div class="stage-head">
       <input type="text" id="title" class="title-input" maxlength="60" placeholder="Název bludiště (nepovinné)">
+      <div class="stage-actions">
+        <button type="button" class="btn" id="btn-undo">&#8630; Zpět</button>
+        <button type="button" class="btn" id="btn-redo">&#8631; Vpřed</button>
+        <button type="button" class="btn btn-danger" id="btn-clear">Vymazat vše</button>
+      </div>
       <span class="size-badge" id="size-badge"></span>
     </div>
 
@@ -182,6 +180,15 @@
     <button type="button" class="btn full" id="btn-link">Zkopírovat odkaz ke sdílení</button>
     <p class="ok-msg" id="save-msg"></p>
     <input type="file" id="file-input" accept="application/json,.json" hidden>
+
+    <h3 class="dlg-sub">Moje ikony</h3>
+    <p class="card-note">Nahrané ikony si pamatuje jen tenhle prohlížeč na tomhle počítači.
+      Zálohou do souboru je dostaneš i na jiný počítač nebo na novou adresu webu.</p>
+    <div class="btnrow">
+      <button type="button" class="btn" id="btn-icons-save">Uložit ikony do souboru</button>
+      <button type="button" class="btn" id="btn-icons-load">Načíst ikony ze souboru</button>
+    </div>
+    <input type="file" id="icons-file" accept="application/json,.json" hidden>
     <div class="dlg-actions">
       <button type="button" class="btn" data-close>Zavřít</button>
     </div>
@@ -200,6 +207,8 @@
       <li>U startu a jednosměrky se po vybrání objeví <strong>natočení přímo v tlačítku</strong>.
           Dalším kliknutím na už položenou šipku ji taky otočíš.</li>
       <li>U <strong>Vlastního tvaru</strong> si v tlačítku vybereš tvar i barvu značky.</li>
+      <li>Přes <strong>Nahrát ikonu</strong> si můžeš přidat vlastní obrázek (PNG, JPG nebo SVG)
+          a pokládat ho na desku jako každý jiný prvek.</li>
       <li>Pole nemusí být obdélník. V části <strong>Tvar pole</strong> si dlaždice naklikáš do
           písmena L, okruhu se dírou uprostřed nebo jakéhokoli jiného tvaru.</li>
     </ol>
@@ -226,7 +235,18 @@
 
     <h3>Ukládání</h3>
     <p>Rozdělaná práce zůstává v prohlížeči i po zavření. Přes <strong>Soubor a odkaz</strong> si bludiště uložíš
-       do souboru nebo pošleš kolegyni odkazem.</p>
+       do souboru nebo pošleš kolegyni odkazem. Vlastní ikony, které jsou na desce, se do souboru
+       i do odkazu přibalí, takže je kolegyni uvidí taky.</p>
+
+    <h3>Kde bydlí moje ikony</h3>
+    <p>Nahrané ikony leží <strong>jen v tomhle prohlížeči na tomhle počítači</strong>. Nikam se neposílají,
+       nic se nikam nepřihlašuje a o počítači se nikde nic neukládá.</p>
+    <p><strong>Vydrží:</strong> nové okno i panel, zavření a znovuotevření prohlížeče, vypnutí a zapnutí počítače.</p>
+    <p><strong>Zmizí:</strong> když vymažeš historii včetně „cookies a dat stránek“, v anonymním okně,
+       v jiném prohlížeči nebo na jiném počítači, na školním počítači, kde se profil maže po odhlášení,
+       a taky když se web přestěhuje na jinou adresu.</p>
+    <p>Proto si je občas <strong>ulož do souboru</strong> (Soubor a odkaz &rarr; Uložit ikony do souboru).
+       Taková záloha přežije všechno a dostaneš s ní ikony i na ostatní počítače ve škole.</p>
 
     <div class="dlg-actions">
       <button type="button" class="btn btn-primary" data-close>Rozumím</button>
@@ -235,6 +255,7 @@
 </dialog>
 
 <script src="js/model.js"></script>
+<script src="js/usericons.js"></script>
 <script src="js/icons.js"></script>
 <script src="js/render.js"></script>
 <script src="js/solver.js"></script>

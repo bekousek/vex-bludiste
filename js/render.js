@@ -150,7 +150,8 @@
     var e = M.extent(b);
     var W = (e.mx + 1) * TS + 2 * PAD, H = (e.my + 1) * TS + 2 * PAD;
     return '<svg class="board ' + (opts.cssClass || '') + '" viewBox="0 0 ' + W + ' ' + H +
-      '" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" role="img" aria-label="deska bludiště">' +
+      '" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"' +
+      ' preserveAspectRatio="xMidYMid meet" role="img" aria-label="deska bludiště">' +
       plate(b, opts.eco) +
       seams(b, opts.eco) +
       cellsLayer(b) +

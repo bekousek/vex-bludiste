@@ -44,6 +44,9 @@
 
   function sanitize(b) {
     var M = VEX.model;
+    // Vlastní ikony přibalené k souboru nebo odkazu doplníme do knihovny,
+    // jinak by se u příjemce místo obrázku ukázal otazník.
+    if (b.icons && VEX.userIcons) VEX.userIcons.merge(b.icons);
     var out = M.boardFromTiles(readTiles(b));
     out.title = typeof b.title === 'string' ? b.title.slice(0, 60) : '';
     for (var k in b.cells) {
@@ -53,6 +56,14 @@
       out.cells[k] = M.makeItem(it.t, it);
     }
     M.trim(out);
+    return out;
+  }
+
+  /** Deska i s obrázky, které jsou na ní použité – pro soubor a odkaz. */
+  function withIcons(board) {
+    var out = { v: board.v, tiles: board.tiles, cells: board.cells, title: board.title };
+    var used = VEX.userIcons ? VEX.userIcons.usedBy(board) : null;
+    if (used) out.icons = used;
     return out;
   }
 
@@ -79,7 +90,7 @@
   }
 
   function shareLink(board) {
-    return location.origin + location.pathname + '#b=' + toB64(JSON.stringify(board));
+    return location.origin + location.pathname + '#b=' + toB64(JSON.stringify(withIcons(board)));
   }
 
   function safeName(board) {
@@ -102,7 +113,21 @@
   }
 
   function downloadJSON(board) {
-    download(safeName(board) + '.json', 'application/json', JSON.stringify(board, null, 2));
+    download(safeName(board) + '.json', 'application/json', JSON.stringify(withIcons(board), null, 2));
+  }
+
+  function downloadIcons() {
+    download('vex-moje-ikony.json', 'application/json',
+      JSON.stringify(VEX.userIcons.exportAll(), null, 2));
+  }
+
+  function readJSON(file, cb) {
+    var fr = new FileReader();
+    fr.onload = function () {
+      try { cb(JSON.parse(fr.result)); } catch (e) { cb(null); }
+    };
+    fr.onerror = function () { cb(null); };
+    fr.readAsText(file);
   }
 
   function readFile(file, cb) {
@@ -147,6 +172,7 @@
   VEX.storage = {
     saveLocal: saveLocal, loadLocal: loadLocal, loadFromHash: loadFromHash,
     shareLink: shareLink, downloadJSON: downloadJSON, readFile: readFile,
-    downloadPNG: downloadPNG, sanitize: sanitize, valid: valid
+    downloadPNG: downloadPNG, sanitize: sanitize, valid: valid,
+    withIcons: withIcons, downloadIcons: downloadIcons, readJSON: readJSON
   };
 })();

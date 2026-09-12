@@ -94,6 +94,20 @@
         '<path d="M50 26 L64 52 H55 V70 H45 V52 H36 Z" fill="' + C.ink + '"/></g>';
     },
 
+    /* Vlastní nahraný obrázek. Vždy přes <image href="data:…">, takže se
+     * případný skript v SVG nikdy nespustí. */
+    own: function (it) {
+      var lib = window.VEX.userIcons;
+      var url = lib && it ? lib.src(it.ico) : null;
+      if (!url) {
+        return '<g opacity="0.45"><rect x="20" y="20" width="60" height="60" rx="10" fill="none" ' +
+          'stroke="#8a8a8a" stroke-width="5" stroke-dasharray="9 7"/>' +
+          '<text x="50" y="60" text-anchor="middle" font-size="34" fill="#8a8a8a" font-family="sans-serif">?</text></g>';
+      }
+      return '<image href="' + url + '" xlink:href="' + url + '" x="14" y="14" width="72" height="72" ' +
+        'preserveAspectRatio="xMidYMid meet"/>';
+    },
+
     shape: function (it) {
       var M = window.VEX.model;
       var col = M.colorById(it && it.col).hex;
@@ -152,8 +166,8 @@
       item = window.VEX.model.makeItem(type, opts) || { t: type };
     }
     return '<svg class="ico" viewBox="0 0 100 100" width="' + s + '" height="' + s +
-      '" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
-      draw(item) + '</svg>';
+      '" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"' +
+      ' aria-hidden="true">' + draw(item) + '</svg>';
   }
 
   VEX.icons = { draw: draw, standalone: standalone, colors: C, starPath: starPath };

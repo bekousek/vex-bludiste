@@ -1,7 +1,8 @@
 /* VEX Bludiště – propojení ovládání s modelem. */
 (function () {
   var VEX = window.VEX;
-  var M = VEX.model, R = VEX.render, I = VEX.icons, S = VEX.solver, G = VEX.generator, ST = VEX.storage, P = VEX.printing;
+  var M = VEX.model, R = VEX.render, I = VEX.icons, S = VEX.solver, G = VEX.generator,
+    ST = VEX.storage, P = VEX.printing, UI = VEX.userIcons;
 
   var $ = function (id) { return document.getElementById(id); };
 
@@ -28,9 +29,14 @@
 
   /* ---------------- paleta ---------------- */
 
+  /* Vlastní ikony mají v paletě vlastní tlačítko, proto je jejich nástroj
+   * zapsaný jako "own:<id ikony>". */
+  function toolType(id) { return id.indexOf('own:') === 0 ? 'own' : id; }
+  function toolIco(id) { return id.indexOf('own:') === 0 ? id.slice(4) : ''; }
+
   /** Volby, které se objeví přímo v tlačítku prvku, když je vybraný. */
   function toolOptions(id) {
-    var def = M.ITEMS[id];
+    var def = M.ITEMS[toolType(id)];
     if (!def) return '';
     if (def.rot) {
       // křížový ovladač – velká tlačítka, hned je vidět, kam co míří
@@ -60,14 +66,24 @@
   function toolIcon(id) {
     if (id === 'erase') return ERASER_ICON;
     if (id === 'shape') return I.standalone({ t: 'shape', s: state.shape, col: state.color }, null, 44);
+    if (toolType(id) === 'own') return I.standalone({ t: 'own', ico: toolIco(id) }, null, 44);
     var def = M.ITEMS[id];
     return I.standalone(id, def && def.rot ? state.dir : 0, 44);
+  }
+
+  function escAttr(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (ch) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch];
+    });
   }
 
   function buildTools() {
     var host = $('tools'), html = '';
     M.GROUPS.forEach(function (grp) {
-      var ids = Object.keys(M.ITEMS).filter(function (k) { return M.ITEMS[k].group === grp.id; });
+      if (grp.id === 'vlastni') { html += ownGroup(); return; }
+      var ids = Object.keys(M.ITEMS).filter(function (k) {
+        return M.ITEMS[k].group === grp.id && !M.ITEMS[k].icon;
+      });
       if (!ids.length) return;
       html += '<div class="tool-group"><h3>' + grp.label + '</h3><div class="tool-grid">';
       ids.forEach(function (id) { html += toolCard(id); });
@@ -76,8 +92,14 @@
     html += '<div class="tool-group"><h3>Mazání</h3><div class="tool-grid">' +
       toolCard('erase') + '</div></div>';
     host.innerHTML = html;
+    syncIconsNote();
 
     host.addEventListener('click', function (e) {
+      var del = e.target.closest('.tool-del');
+      if (del) { deleteIcon(del.closest('.tool').dataset.tool); return; }
+
+      if (e.target.closest('.tool-add')) { $('icon-input').click(); return; }
+
       var opt = e.target.closest('.opt');
       if (opt) {
         var card = opt.closest('.tool');
@@ -92,15 +114,27 @@
     });
   }
 
+  /** Skupina s nahranými ikonami a tlačítkem pro přidání další. */
+  function ownGroup() {
+    var s = '<div class="tool-group"><h3>Moje ikony</h3><div class="tool-grid" id="own-grid">';
+    UI.list().forEach(function (ic) { s += toolCard('own:' + ic.id); });
+    s += '<button type="button" class="tool tool-add" title="Přidej si vlastní obrázek (PNG, JPG nebo SVG).">' +
+      '<span class="tool-add-plus">+</span><span>Nahrát ikonu</span></button>';
+    return s + '</div></div>';
+  }
+
   function toolCard(id) {
-    var def = M.ITEMS[id];
-    var label = id === 'erase' ? 'Guma' : def.label;
-    var hint = id === 'erase' ? 'Smaže obsah políčka.' : def.hint;
+    var type = toolType(id);
+    var def = M.ITEMS[type];
+    var own = type === 'own';
+    var label = id === 'erase' ? 'Guma' : own ? UI.nameOf(toolIco(id)) : def.label;
+    var hint = id === 'erase' ? 'Smaže obsah políčka.' : own ? label : def.hint;
     var wide = def && def.custom ? ' tool-wide' : '';
     var on = state.tool === id;
-    return '<div class="tool' + wide + (on ? ' on' : '') + '" data-tool="' + id + '">' +
-      '<button type="button" class="tool-main" title="' + hint + '">' +
-      toolIcon(id) + '<span>' + label + '</span></button>' +
+    return '<div class="tool' + wide + (on ? ' on' : '') + '" data-tool="' + escAttr(id) + '">' +
+      '<button type="button" class="tool-main" title="' + escAttr(hint) + '">' +
+      toolIcon(id) + '<span>' + escAttr(label) + '</span></button>' +
+      (own ? '<button type="button" class="tool-del" title="Smazat tuhle ikonu">&times;</button>' : '') +
       (on ? toolOptions(id) : '') + '</div>';
   }
 
@@ -123,13 +157,104 @@
     });
   }
 
+  /* ---------------- vlastní ikony ---------------- */
+
+  function syncIconsNote() {
+    var n = UI.count();
+    $('icons-note').textContent = n
+      ? n + ' z ' + UI.MAX_ICONS + ' vlastních ikon. Uložené jsou jen v tomhle prohlížeči – zálohu najdeš v Soubor a odkaz.'
+      : 'Můžeš si nahrát vlastní obrázek (PNG, JPG nebo SVG) a používat ho jako prvek.';
+  }
+
+  function rebuildOwnGroup() {
+    var grid = $('own-grid');
+    if (!grid) return;
+    var tmp = document.createElement('div');
+    tmp.innerHTML = ownGroup();
+    grid.replaceWith(tmp.querySelector('#own-grid'));
+    syncIconsNote();
+  }
+
+  function addIconFile(file) {
+    UI.fromFile(file, function (dataUrl, err) {
+      if (err) { alert(err); return; }
+      var suggested = UI.baseName(file);
+      var name = prompt('Jak se má ikona jmenovat? (ukáže se ve vysvětlivkách)', suggested);
+      if (name === null) name = suggested;
+      var res = UI.add(name.trim() || suggested, dataUrl);
+      if (!res.ok) { alert(res.error); return; }
+      rebuildOwnGroup();
+      selectTool('own:' + res.id);
+    });
+  }
+
+  function deleteIcon(toolId) {
+    var ico = toolIco(toolId);
+    var used = M.findAll(state.board, function (it) { return it.t === 'own' && it.ico === ico; });
+    var msg = used.length
+      ? 'Ikona „' + UI.nameOf(ico) + '“ je na desce ' + used.length + '× použitá. Smazat ji i z desky?'
+      : 'Opravdu smazat ikonu „' + UI.nameOf(ico) + '“?';
+    if (!confirm(msg)) return;
+    if (used.length) {
+      snapshot(true);
+      used.forEach(function (u) { M.set(state.board, u.c, u.r, null); });
+      clearSolution();
+      renderAll();
+      changed();
+    }
+    UI.remove(ico);
+    if (state.tool === toolId) state.tool = 'wall';
+    rebuildOwnGroup();
+    selectTool(state.tool);
+  }
+
+  function bindIcons() {
+    $('icon-input').addEventListener('change', function (e) {
+      var f = e.target.files[0];
+      e.target.value = '';
+      if (f) addIconFile(f);
+    });
+
+    $('btn-icons-save').addEventListener('click', function () {
+      if (!UI.count()) { $('save-msg').textContent = 'Zatím nemáš žádnou vlastní ikonu.'; return; }
+      ST.downloadIcons();
+      $('save-msg').textContent = 'Ikony jsou uložené do souboru vex-moje-ikony.json.';
+    });
+
+    $('btn-icons-load').addEventListener('click', function () { $('icons-file').click(); });
+
+    $('icons-file').addEventListener('change', function (e) {
+      var f = e.target.files[0];
+      e.target.value = '';
+      if (!f) return;
+      ST.readJSON(f, function (data) {
+        var res = UI.importAll(data);
+        if (!res.ok) { $('save-msg').textContent = res.error; return; }
+        rebuildOwnGroup();
+        renderAll();
+        $('save-msg').textContent = res.added
+          ? 'Přidáno ' + res.added + ' ikon.'
+          : 'Všechny ikony ze souboru už tu byly.';
+      });
+    });
+  }
+
   /* ---------------- historie ---------------- */
 
-  function snapshot() {
-    state.undo.push(JSON.stringify(state.board));
+  /* keepIcons: do zálohy přibalí i obrázky vlastních ikon z desky. Potřeba před
+   * smazáním ikony – jinak by Zpět vrátil prvky na desku, ale místo obrázku otazník. */
+  function snapshot(keepIcons) {
+    state.undo.push(JSON.stringify(keepIcons ? ST.withIcons(state.board) : state.board));
     if (state.undo.length > 60) state.undo.shift();
     state.redo.length = 0;
     syncHistory();
+  }
+
+  /** Vrátí do knihovny ikony přibalené v obnovené záloze. */
+  function takeIcons() {
+    if (!state.board.icons) return;
+    UI.merge(state.board.icons);
+    delete state.board.icons;
   }
 
   function syncHistory() {
@@ -141,6 +266,7 @@
     if (!state.undo.length) return;
     state.redo.push(JSON.stringify(state.board));
     state.board = JSON.parse(state.undo.pop());
+    takeIcons();
     afterBoardSwap();
   }
 
@@ -148,6 +274,7 @@
     if (!state.redo.length) return;
     state.undo.push(JSON.stringify(state.board));
     state.board = JSON.parse(state.redo.pop());
+    takeIcons();
     afterBoardSwap();
   }
 
@@ -155,6 +282,7 @@
     syncHistory();
     $('title').value = state.board.title || '';
     syncSizeInputs();
+    rebuildOwnGroup();          // načtená deska mohla přinést vlastní ikony
     renderAll();
     changed(true);
   }
@@ -206,14 +334,16 @@
   /* ---------------- pokládání prvků ---------------- */
 
   function toolOpts() {
-    return { d: state.dir, s: state.shape, col: state.color };
+    return { d: state.dir, s: state.shape, col: state.color, ico: toolIco(state.tool) };
   }
 
   function sameAsTool(cur) {
-    if (!cur || cur.t !== state.tool) return false;
-    var def = M.ITEMS[state.tool];
+    var type = toolType(state.tool);
+    if (!cur || cur.t !== type) return false;
+    var def = M.ITEMS[type];
     if (def.rot) return cur.d === state.dir;
     if (def.custom) return cur.s === state.shape && cur.col === state.color;
+    if (def.icon) return cur.ico === toolIco(state.tool);
     return true;
   }
 
@@ -223,12 +353,13 @@
       if (cur) { M.set(state.board, c, r, null); refreshCell(c, r); }
       return;
     }
-    var def = M.ITEMS[state.tool];
+    var type = toolType(state.tool);
+    var def = M.ITEMS[type];
     if (!def) return;
-    if (cur && cur.t === state.tool) {
+    if (cur && cur.t === type) {
       if (def.rot && cur.d === state.dir) {          // druhý klik na šipku = otočí se
         state.dir = (cur.d + 1) & 3;
-        M.set(state.board, c, r, M.makeItem(state.tool, toolOpts()));
+        M.set(state.board, c, r, M.makeItem(type, toolOpts()));
         refreshToolCard(state.tool);
         refreshCell(c, r);
         return;
@@ -239,8 +370,8 @@
         return;
       }
     }
-    var old = def.unique ? M.findFirst(state.board, state.tool) : null;
-    M.place(state.board, c, r, state.tool, toolOpts());
+    var old = def.unique ? M.findFirst(state.board, type) : null;
+    M.place(state.board, c, r, type, toolOpts());
     if (old) refreshCell(old.c, old.r);
     refreshCell(c, r);
   }
@@ -250,10 +381,11 @@
       if (M.get(state.board, c, r)) { M.set(state.board, c, r, null); refreshCell(c, r); }
       return;
     }
-    var def = M.ITEMS[state.tool];
+    var type = toolType(state.tool);
+    var def = M.ITEMS[type];
     if (!def || def.unique) return;
     if (sameAsTool(M.get(state.board, c, r))) return;
-    M.place(state.board, c, r, state.tool, toolOpts());
+    M.place(state.board, c, r, type, toolOpts());
     refreshCell(c, r);
   }
 
@@ -569,9 +701,13 @@
     $('btn-link').addEventListener('click', function () {
       var url = ST.shareLink(state.board);
       history.replaceState(null, '', '#b=' + url.split('#b=')[1]);
+      // vlastní ikony jedou v odkazu s sebou, takže může být hodně dlouhý
+      var longWarn = url.length > 8000
+        ? ' Pozor, kvůli vlastním ikonám je odkaz hodně dlouhý – některé e-maily ho zalomí. Radši pošli soubor.'
+        : '';
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(url).then(
-          function () { $('save-msg').textContent = 'Odkaz je zkopírovaný. Stačí ho vložit do e-mailu.'; },
+          function () { $('save-msg').textContent = 'Odkaz je zkopírovaný. Stačí ho vložit do e-mailu.' + longWarn; },
           function () { $('save-msg').textContent = 'Odkaz je v adresním řádku prohlížeče – zkopíruj ho odtud.'; }
         );
       } else {
@@ -584,6 +720,7 @@
     var host = $('help-legend'), html = '';
     Object.keys(M.ITEMS).forEach(function (id) {
       var def = M.ITEMS[id];
+      if (def.icon) return;                 // vlastní ikony jsou u každého jiné
       html += '<div class="hl-item">' + I.standalone(id, id === 'oneway' ? 1 : 2, 50) +
         '<div><strong>' + def.label + '</strong><span>' + def.hint + '</span></div></div>';
     });
@@ -612,6 +749,7 @@
     bindSolver();
     bindPrint();
     bindSave();
+    bindIcons();
     bindHelp();
 
     $('title').value = b.title || '';

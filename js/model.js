@@ -96,6 +96,11 @@
       label: 'Vlastní tvar', group: 'znacky', custom: true,
       hint: 'Značka podle vlastního zadání – vyber si tvar a barvu.',
       legend: 'vlastní značka'
+    },
+    own: {
+      label: 'Moje ikona', group: 'vlastni', icon: true,
+      hint: 'Obrázek, který sis sám nahrál.',
+      legend: 'vlastní obrázek'
     }
   };
 
@@ -103,7 +108,8 @@
     { id: 'trasa', label: 'Trasa' },
     { id: 'prekazky', label: 'Překážky' },
     { id: 'ukoly', label: 'Úkoly' },
-    { id: 'znacky', label: 'Značka' }
+    { id: 'znacky', label: 'Značka' },
+    { id: 'vlastni', label: 'Moje ikony' }
   ];
 
   /* ---------- dlaždice ---------- */
@@ -202,6 +208,7 @@
       it.s = shapeById(opts.s).id;
       it.col = colorById(opts.col).id;
     }
+    if (def.icon) it.ico = String(opts.ico || '').slice(0, 40);
     return it;
   }
 
@@ -252,10 +259,12 @@
     for (var k in b.cells) {
       var it = b.cells[k], def = ITEMS[it.t];
       if (!def) continue;
-      var id = def.custom ? it.t + ':' + it.s + ':' + it.col : it.t;
+      var id = def.custom ? it.t + ':' + it.s + ':' + it.col : def.icon ? it.t + ':' + it.ico : it.t;
       if (seen[id]) continue;
       seen[id] = 1;
-      out.push({ item: it, text: def.legend, sort: order.indexOf(it.t) });
+      var text = def.legend;
+      if (def.icon && window.VEX.userIcons) text = window.VEX.userIcons.nameOf(it.ico) || def.legend;
+      out.push({ item: it, text: text, sort: order.indexOf(it.t) });
     }
     out.sort(function (a, z) { return a.sort - z.sort; });
     return out;

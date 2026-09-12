@@ -20,6 +20,8 @@ Učitel si bludiště naklikne, nebo si ho nechá vygenerovat, zkontroluje řeš
 - **Tisk prázdných polí** libovolné velikosti a v libovolném počtu kopií pro práci s tužkou a papírem.
 - **Export do PNG**, uložení do souboru a sdílení odkazem.
 - Rozdělaná práce se sama ukládá do prohlížeče.
+- **Vlastní ikony** – nahraný obrázek (PNG, JPG, SVG) se přidá do palety a pokládá se jako každý jiný prvek.
+- Zpět, Vpřed a Vymazat vše jsou po ruce nad deskou.
 
 ## Prvky
 
@@ -33,9 +35,34 @@ Učitel si bludiště naklikne, nebo si ho nechá vygenerovat, zkontroluje řeš
 | Zvuk | robot zde musí vydat zvuk |
 | Světlo | robot se zde musí rozsvítit |
 | Vlastní tvar | značka podle vlastního zadání – 6 tvarů × 8 barev |
+| Moje ikony | vlastní nahrané obrázky, ve vysvětlivkách se ukážou pod svým jménem |
 
 U startu a jednosměrky se natočení vybírá křížovým ovladačem přímo v jejich tlačítku,
 u vlastního tvaru se tam stejně vybírá tvar a barva.
+
+## Vlastní ikony a kde se ukládají
+
+Nahrané ikony leží jen v `localStorage` prohlížeče na počítači, kde se nahrály. Aplikace je
+nikam neposílá, nemá přihlašování a o počítači nic neukládá. Při prvním nahrání požádá přes
+`navigator.storage.persist()`, aby prohlížeč data nemazal, když dojde místo na disku.
+
+| Situace | Ikony |
+|---|---|
+| nový panel nebo okno | zůstanou |
+| zavření a znovuotevření prohlížeče | zůstanou |
+| vypnutí a zapnutí počítače | zůstanou |
+| vymazání historie včetně „cookies a dat stránek“ | zmizí |
+| anonymní okno | nevidí je, co se tam přidá, zmizí po zavření |
+| jiný prohlížeč, jiný profil, jiný počítač | nevidí je |
+| školní počítač, který maže profil po odhlášení | zmizí |
+| přestěhování webu na jinou doménu | zmizí (jiná adresa = jiné úložiště) |
+
+Proti všem těmto případům pomáhá **Soubor a odkaz → Uložit ikony do souboru**; ze zálohy se ikony
+načtou zpátky na libovolném počítači. Ikony použité na desce se navíc samy přibalí do uloženého
+bludiště i do sdíleného odkazu.
+
+Rastrové obrázky se zmenší na 256 px, z SVG se odstraní skripty a obsluhy událostí a na desce se
+vždy vykreslují přes `<image>`, takže se z nahraného souboru nic nespustí. Limit je 24 ikon.
 
 ## Pravidla generátoru
 
@@ -74,6 +101,7 @@ css/style.css       vzhled aplikace
 css/print.css       tiskový výstup (A4, automatická orientace)
 js/model.js         datový model desky (dlaždice + políčka) a registr prvků
 js/icons.js         kresba ikon do čtverce 100×100
+js/usericons.js     knihovna vlastních nahraných ikon (localStorage, záloha do souboru)
 js/render.js        vykreslení desky do SVG
 js/solver.js        řešitel – nejkratší program přes všechny úkoly do cíle
 js/generator.js     automatický generátor bludišť
