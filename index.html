@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VEX Bludiště</title>
+<meta name="description" content="Jednoduchý nástroj pro učitele: vytvoř bludiště pro roboty VEX 123 a VEX GO, nech si ho vygenerovat a vytiskni.">
+<link rel="icon" href="favicon.svg">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/print.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-logo" aria-hidden="true"></span>
+    <span class="brand-text">
+      <strong>VEX&nbsp;Bludiště</strong>
+      <small>tvorba úloh pro roboty VEX&nbsp;123 a VEX&nbsp;GO</small>
+    </span>
+  </div>
+  <button type="button" class="btn btn-help" id="btn-help">?&nbsp; Nápověda</button>
+</header>
+
+<div class="layout">
+
+  <!-- ============ LEVÝ SLOUPEC: co pokládám ============ -->
+  <aside class="col col-tools">
+    <section class="card">
+      <h2 class="card-title"><span class="step">1</span> Vyber prvek</h2>
+      <div class="tools" id="tools"></div>
+
+      <div class="dirpick" id="dirpick" hidden>
+        <span class="dirpick-label">Natočení:</span>
+        <div class="dirbtns" id="dirbtns">
+          <button type="button" data-dir="0" title="nahoru">&#9650;</button>
+          <button type="button" data-dir="1" title="doprava">&#9654;</button>
+          <button type="button" data-dir="2" title="dolů">&#9660;</button>
+          <button type="button" data-dir="3" title="doleva">&#9664;</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">Oprava</h2>
+      <div class="btnrow">
+        <button type="button" class="btn" id="btn-undo">&#8630; Zpět</button>
+        <button type="button" class="btn" id="btn-redo">&#8631; Vpřed</button>
+      </div>
+      <button type="button" class="btn btn-danger full" id="btn-clear">Vymazat celé pole</button>
+    </section>
+  </aside>
+
+  <!-- ============ STŘED: deska ============ -->
+  <main class="col col-stage">
+    <div class="stage-head">
+      <input type="text" id="title" class="title-input" maxlength="60" placeholder="Název bludiště (nepovinné)">
+      <span class="size-badge" id="size-badge"></span>
+    </div>
+
+    <div class="board-wrap" id="board-wrap"></div>
+
+    <p class="hint" id="hint"></p>
+  </main>
+
+  <!-- ============ PRAVÝ SLOUPEC: co dělám ============ -->
+  <aside class="col col-actions">
+
+    <section class="card">
+      <h2 class="card-title"><span class="step">2</span> Velikost pole</h2>
+      <p class="card-note">Jedna dlaždice = 3&times;3 políčka.</p>
+      <div class="stepper">
+        <span class="stepper-label">Dlaždice na šířku</span>
+        <div class="stepper-ctl">
+          <button type="button" data-size="tx" data-delta="-1">&minus;</button>
+          <output id="out-tx">2</output>
+          <button type="button" data-size="tx" data-delta="1">+</button>
+        </div>
+      </div>
+      <div class="stepper">
+        <span class="stepper-label">Dlaždice na výšku</span>
+        <div class="stepper-ctl">
+          <button type="button" data-size="ty" data-delta="-1">&minus;</button>
+          <output id="out-ty">2</output>
+          <button type="button" data-size="ty" data-delta="1">+</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card card-accent">
+      <h2 class="card-title"><span class="step">3</span> Vygeneruj bludiště</h2>
+      <div class="seg" id="difficulty" role="group" aria-label="Obtížnost">
+        <button type="button" data-diff="easy">Lehké</button>
+        <button type="button" data-diff="medium" class="on">Střední</button>
+        <button type="button" data-diff="hard">Těžké</button>
+      </div>
+      <div class="checks">
+        <label><input type="checkbox" id="gen-stars" checked> Hvězdičky k sebrání</label>
+        <label><input type="checkbox" id="gen-oneway" checked> Jednosměrky</label>
+        <label><input type="checkbox" id="gen-sound"> Místo pro zvuk</label>
+        <label><input type="checkbox" id="gen-light"> Místo pro rozsvícení</label>
+      </div>
+      <button type="button" class="btn btn-primary full big" id="btn-generate">Vygenerovat bludiště</button>
+      <p class="card-note" id="gen-note"></p>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">Řešení</h2>
+      <button type="button" class="btn full" id="btn-check">Zkontrolovat a ukázat cestu</button>
+      <div class="solution" id="solution" hidden></div>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title"><span class="step">4</span> Tisk a uložení</h2>
+      <button type="button" class="btn btn-primary full" id="btn-print">Vytisknout</button>
+      <div class="btnrow">
+        <button type="button" class="btn" id="btn-png">Obrázek PNG</button>
+        <button type="button" class="btn" id="btn-save">Soubor a odkaz</button>
+      </div>
+    </section>
+
+  </aside>
+</div>
+
+<footer class="footer">
+  <span>VEX Bludiště &middot; volně k použití ve škole</span>
+  <a href="https://github.com/bekousek/VEX-bludiste" target="_blank" rel="noopener">zdrojový kód</a>
+</footer>
+
+<!-- ============ TISKOVÝ VÝSTUP ============ -->
+<div id="print-root" aria-hidden="true"></div>
+
+<!-- ============ DIALOGY ============ -->
+<dialog id="dlg-print" class="dlg">
+  <form method="dialog" class="dlg-in">
+    <h2>Co chceš vytisknout?</h2>
+
+    <label class="radio-card">
+      <input type="radio" name="printmode" value="board" checked>
+      <span>
+        <strong>Hotové bludiště</strong>
+        <small>deska tak, jak ji vidíš na obrazovce, i s vysvětlivkami</small>
+      </span>
+    </label>
+
+    <label class="radio-card">
+      <input type="radio" name="printmode" value="blank">
+      <span>
+        <strong>Prázdné pole na kreslení</strong>
+        <small>čistá deska pro práci s tužkou a papírem</small>
+      </span>
+    </label>
+
+    <div class="blank-opts" id="blank-opts">
+      <div class="inline-fields">
+        <label>Dlaždice šířka <input type="number" id="blank-tx" min="1" max="8" value="2"></label>
+        <label>Dlaždice výška <input type="number" id="blank-ty" min="1" max="8" value="2"></label>
+        <label>Počet listů <input type="number" id="blank-copies" min="1" max="20" value="1"></label>
+      </div>
+      <label class="chk"><input type="checkbox" id="blank-legend" checked> Vytisknout i vysvětlivky</label>
+    </div>
+
+    <label class="chk"><input type="checkbox" id="print-solution"> Vytisknout i řešení (pro učitele)</label>
+    <label class="chk"><input type="checkbox" id="print-eco"> Úsporný tisk (bez šedého podkladu)</label>
+
+    <div class="dlg-actions">
+      <button type="submit" value="cancel" class="btn">Zrušit</button>
+      <button type="submit" value="print" class="btn btn-primary">Vytisknout</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-save" class="dlg">
+  <div class="dlg-in">
+    <h2>Soubor a odkaz</h2>
+    <p class="card-note">Bludiště se samo ukládá do tohoto prohlížeče. Pro přenos jinam použij soubor nebo odkaz.</p>
+    <div class="btnrow">
+      <button type="button" class="btn btn-primary" id="btn-download">Uložit do souboru</button>
+      <button type="button" class="btn" id="btn-upload">Načíst ze souboru</button>
+    </div>
+    <button type="button" class="btn full" id="btn-link">Zkopírovat odkaz ke sdílení</button>
+    <p class="ok-msg" id="save-msg"></p>
+    <input type="file" id="file-input" accept="application/json,.json" hidden>
+    <div class="dlg-actions">
+      <button type="button" class="btn" data-close>Zavřít</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="dlg-help" class="dlg dlg-wide">
+  <div class="dlg-in">
+    <h2>Nápověda</h2>
+
+    <h3>Jak to funguje</h3>
+    <ol class="help-list">
+      <li>Vlevo <strong>klikni na prvek</strong>, který chceš použít (třeba Zákaz vjezdu).</li>
+      <li>Pak <strong>klikni na políčko</strong> na desce. Můžeš i táhnout myší a kreslit víc políček najednou.</li>
+      <li>Chybu smažeš <strong>Gumou</strong>, nebo kliknutím pravým tlačítkem na políčko.</li>
+      <li>U šipek a startu si vyber <strong>natočení</strong>. Dalším kliknutím na už položenou šipku ji otočíš.</li>
+    </ol>
+
+    <h3>Co který prvek znamená</h3>
+    <div class="help-legend" id="help-legend"></div>
+
+    <h3>Jak přemýšlí automatický generátor</h3>
+    <p>Generátor nesází prvky náhodně. Vždy dodrží tato pravidla:</p>
+    <ul class="help-list">
+      <li>Start je na kraji desky a robot kouká dovnitř pole.</li>
+      <li>Cíl je vždy <strong>daleko od startu</strong> &ndash; nikdy ne hned vedle.</li>
+      <li>Cesta má vždy alespoň <strong>2 až 4 zatáčky</strong> (podle obtížnosti). Nikdy to není jen rovná čára.</li>
+      <li>Překážky se přednostně staví <strong>do přímé cesty</strong>, takže robot musí objíždět.</li>
+      <li>Aspoň jedna hvězdička leží <strong>mimo nejkratší cestu</strong> &ndash; děti musí zajet stranou.</li>
+      <li>Jednosměrka se položí jen tam, kde bludiště <strong>zůstane řešitelné</strong>.</li>
+      <li>Na konci se bludiště <strong>vyřeší počítačem</strong>. Když řešení neexistuje nebo je moc jednoduché, generátor to zahodí a zkusí to znovu.</li>
+      <li>Nejméně polovina desky zůstane volná, aby se dalo robotem projet.</li>
+    </ul>
+
+    <h3>Tisk</h3>
+    <p>Tlačítko <strong>Vytisknout</strong> nabídne hotové bludiště i prázdné pole libovolné velikosti na kreslení tužkou.
+       V okně tisku vyber „Uložit jako PDF“, pokud chceš jen soubor.</p>
+
+    <h3>Ukládání</h3>
+    <p>Rozdělaná práce zůstává v prohlížeči i po zavření. Přes <strong>Soubor a odkaz</strong> si bludiště uložíš
+       do souboru nebo pošleš kolegyni odkazem.</p>
+
+    <div class="dlg-actions">
+      <button type="button" class="btn btn-primary" data-close>Rozumím</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="js/model.js"></script>
+<script src="js/icons.js"></script>
+<script src="js/render.js"></script>
+<script src="js/solver.js"></script>
+<script src="js/generator.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/printing.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

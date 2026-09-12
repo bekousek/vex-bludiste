@@ -1,0 +1,96 @@
+/* VEX Bludiště – tiskový výstup */
+
+@media print {
+
+  body > *:not(#print-root) { display: none !important; }
+
+  html, body {
+    background: #fff !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  #print-root { display: block !important; }
+
+  .p-page {
+    page-break-after: always;
+    break-after: page;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    color: #111;
+  }
+  .p-page:last-child { page-break-after: auto; break-after: auto; }
+
+  .p-head {
+    border-bottom: 3px solid #713a94;
+    padding-bottom: 5mm;
+    margin-bottom: 5mm;
+  }
+  .p-head h1 {
+    margin: 0;
+    font: 700 22pt/1.15 "Segoe UI", system-ui, Arial, sans-serif;
+    color: #713a94;
+  }
+  .p-head p {
+    margin: 2mm 0 0;
+    font: 11pt/1.3 "Segoe UI", system-ui, Arial, sans-serif;
+    color: #444;
+  }
+
+  .p-body {
+    flex: 1;
+    display: flex;
+    gap: 8mm;
+    align-items: flex-start;
+    min-height: 0;
+  }
+
+  .p-board {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+  }
+
+  /* Rozměr desky v mm nastavuje js/printing.js, aby se vždy vešla na A4. */
+  .p-board svg { max-width: 100%; }
+
+  .p-legend {
+    width: 42mm;
+    flex: none;
+    border-left: 1.5pt solid #ccc;
+    padding-left: 6mm;
+  }
+  .p-body-wide .p-legend { display: none; }
+
+  .p-legend h2 {
+    margin: 0 0 4mm;
+    font: 700 11pt/1.2 "Segoe UI", system-ui, Arial, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: .5pt;
+    color: #555;
+  }
+
+  .legend { display: flex; flex-direction: column; gap: 6mm; }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 3mm;
+    font: 10pt/1.25 "Segoe UI", system-ui, Arial, sans-serif;
+  }
+  .legend-item .ico { flex: none; width: 12mm; height: 12mm; }
+
+  .p-cmds {
+    margin: 0;
+    padding-left: 6mm;
+    font: 9.5pt/1.45 "Segoe UI", system-ui, Arial, sans-serif;
+    columns: 1;
+  }
+  .p-cmds li { margin-bottom: .4mm; }
+
+  .p-solution .p-legend { width: 52mm; }
+
+  .board .hits, .board .hit { display: none !important; }
+}
