@@ -29,16 +29,6 @@
     <section class="card">
       <h2 class="card-title"><span class="step">1</span> Vyber prvek</h2>
       <div class="tools" id="tools"></div>
-
-      <div class="dirpick" id="dirpick" hidden>
-        <span class="dirpick-label">Natočení:</span>
-        <div class="dirbtns" id="dirbtns">
-          <button type="button" data-dir="0" title="nahoru">&#9650;</button>
-          <button type="button" data-dir="1" title="doprava">&#9654;</button>
-          <button type="button" data-dir="2" title="dolů">&#9660;</button>
-          <button type="button" data-dir="3" title="doleva">&#9664;</button>
-        </div>
-      </div>
     </section>
 
     <section class="card">
@@ -59,18 +49,16 @@
     </div>
 
     <div class="board-wrap" id="board-wrap"></div>
-
-    <p class="hint" id="hint"></p>
   </main>
 
   <!-- ============ PRAVÝ SLOUPEC: co dělám ============ -->
   <aside class="col col-actions">
 
     <section class="card">
-      <h2 class="card-title"><span class="step">2</span> Velikost pole</h2>
-      <p class="card-note">Jedna dlaždice = 3&times;3 políčka.</p>
+      <h2 class="card-title"><span class="step">2</span> Tvar pole</h2>
+
       <div class="stepper">
-        <span class="stepper-label">Dlaždice na šířku</span>
+        <span class="stepper-label">Obdélník na šířku</span>
         <div class="stepper-ctl">
           <button type="button" data-size="tx" data-delta="-1">&minus;</button>
           <output id="out-tx">2</output>
@@ -78,12 +66,24 @@
         </div>
       </div>
       <div class="stepper">
-        <span class="stepper-label">Dlaždice na výšku</span>
+        <span class="stepper-label">Obdélník na výšku</span>
         <div class="stepper-ctl">
           <button type="button" data-size="ty" data-delta="-1">&minus;</button>
           <output id="out-ty">2</output>
           <button type="button" data-size="ty" data-delta="1">+</button>
         </div>
+      </div>
+
+      <p class="or-line"><span>nebo si tvar naklikej</span></p>
+
+      <div class="tilemap" id="tilemap"></div>
+      <p class="card-note">Jedna dlaždice = 3&times;3 políčka. Kliknutím ji přidáš nebo ubereš.</p>
+
+      <div class="presets" id="presets">
+        <button type="button" data-preset="L">Písmeno L</button>
+        <button type="button" data-preset="ring">Okruh</button>
+        <button type="button" data-preset="cross">Kříž</button>
+        <button type="button" data-preset="zigzag">Cikcak</button>
       </div>
     </section>
 
@@ -157,6 +157,7 @@
         <label>Dlaždice výška <input type="number" id="blank-ty" min="1" max="8" value="2"></label>
         <label>Počet listů <input type="number" id="blank-copies" min="1" max="20" value="1"></label>
       </div>
+      <label class="chk"><input type="checkbox" id="blank-same"> Použít stejný tvar jako moje pole</label>
       <label class="chk"><input type="checkbox" id="blank-legend" checked> Vytisknout i vysvětlivky</label>
     </div>
 
@@ -196,7 +197,11 @@
       <li>Vlevo <strong>klikni na prvek</strong>, který chceš použít (třeba Zákaz vjezdu).</li>
       <li>Pak <strong>klikni na políčko</strong> na desce. Můžeš i táhnout myší a kreslit víc políček najednou.</li>
       <li>Chybu smažeš <strong>Gumou</strong>, nebo kliknutím pravým tlačítkem na políčko.</li>
-      <li>U šipek a startu si vyber <strong>natočení</strong>. Dalším kliknutím na už položenou šipku ji otočíš.</li>
+      <li>U startu a jednosměrky se po vybrání objeví <strong>natočení přímo v tlačítku</strong>.
+          Dalším kliknutím na už položenou šipku ji taky otočíš.</li>
+      <li>U <strong>Vlastního tvaru</strong> si v tlačítku vybereš tvar i barvu značky.</li>
+      <li>Pole nemusí být obdélník. V části <strong>Tvar pole</strong> si dlaždice naklikáš do
+          písmena L, okruhu se dírou uprostřed nebo jakéhokoli jiného tvaru.</li>
     </ol>
 
     <h3>Co který prvek znamená</h3>

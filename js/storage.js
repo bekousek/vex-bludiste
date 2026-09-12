@@ -17,21 +17,42 @@
     return new TextDecoder().decode(bytes);
   }
 
+  var MAX = function () { return VEX.model.MAX_TILES; };
+
   function valid(b) {
-    return b && typeof b === 'object' && b.tx > 0 && b.ty > 0 &&
-      b.tx <= VEX.model.MAX_TILES && b.ty <= VEX.model.MAX_TILES && typeof b.cells === 'object';
+    if (!b || typeof b !== 'object' || typeof b.cells !== 'object') return false;
+    if (b.tiles && typeof b.tiles === 'object') return Object.keys(b.tiles).length > 0;
+    return b.tx > 0 && b.ty > 0 && b.tx <= MAX() && b.ty <= MAX();   // starší formát
+  }
+
+  /** Dlaždice ze souboru – jen platné souřadnice v rozsahu desky. */
+  function readTiles(b) {
+    var tiles = {}, k, p;
+    if (b.tiles && typeof b.tiles === 'object') {
+      for (k in b.tiles) {
+        if (!b.tiles[k] || !/^\d+,\d+$/.test(k)) continue;
+        p = k.split(',');
+        if (+p[0] < MAX() && +p[1] < MAX()) tiles[k] = 1;
+      }
+    } else {                                    // formát v1: plný obdélník tx × ty
+      var tx = Math.min(MAX(), b.tx | 0), ty = Math.min(MAX(), b.ty | 0);
+      for (var y = 0; y < ty; y++) for (var x = 0; x < tx; x++) tiles[x + ',' + y] = 1;
+    }
+    if (!Object.keys(tiles).length) tiles['0,0'] = 1;
+    return tiles;
   }
 
   function sanitize(b) {
-    var out = VEX.model.createBoard(b.tx | 0, b.ty | 0);
+    var M = VEX.model;
+    var out = M.boardFromTiles(readTiles(b));
     out.title = typeof b.title === 'string' ? b.title.slice(0, 60) : '';
     for (var k in b.cells) {
       if (!/^\d+,\d+$/.test(k)) continue;
       var it = b.cells[k];
-      if (!it || !VEX.model.ITEMS[it.t]) continue;
-      out.cells[k] = VEX.model.ITEMS[it.t].rot ? { t: it.t, d: (it.d | 0) & 3 } : { t: it.t };
+      if (!it || !M.ITEMS[it.t]) continue;
+      out.cells[k] = M.makeItem(it.t, it);
     }
-    VEX.model.trim(out);
+    M.trim(out);
     return out;
   }
 

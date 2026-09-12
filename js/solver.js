@@ -20,10 +20,16 @@
 
   function buildGrid(b) {
     var w = M.cols(b), h = M.rows(b), n = w * h;
-    var block = new Uint8Array(n);      // 1 = zákaz vjezdu
+    var block = new Uint8Array(n);      // 1 = zákaz vjezdu nebo mimo desku
     var way = new Int8Array(n).fill(-1); // směr jednosměrky, -1 = žádná
+    var c, r;
+    // políčka mimo položené dlaždice jsou pro robota stejná jako zeď
+    for (r = 0; r < h; r++) {
+      for (c = 0; c < w; c++) if (!M.inside(b, c, r)) block[r * w + c] = 1;
+    }
     for (var k in b.cells) {
-      var p = k.split(','), c = +p[0], r = +p[1], it = b.cells[k];
+      var p = k.split(','); c = +p[0]; r = +p[1];
+      var it = b.cells[k];
       if (c >= w || r >= h) continue;
       var i = r * w + c;
       if (it.t === 'wall') block[i] = 1;

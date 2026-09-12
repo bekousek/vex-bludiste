@@ -9,11 +9,15 @@
     board: null,
     tool: 'wall',
     dir: 1,
+    shape: 'circle',
+    color: 'red',
     undo: [],
     redo: [],
     solution: null,
     difficulty: 'medium'
   };
+
+  var DIR_GLYPH = ['▲', '▶', '▼', '◀'];
 
   var ERASER_ICON =
     '<svg class="ico" viewBox="0 0 100 100" width="44" height="44" aria-hidden="true">' +
@@ -24,51 +28,100 @@
 
   /* ---------------- paleta ---------------- */
 
+  /** Volby, které se objeví přímo v tlačítku prvku, když je vybraný. */
+  function toolOptions(id) {
+    var def = M.ITEMS[id];
+    if (!def) return '';
+    if (def.rot) {
+      // křížový ovladač – velká tlačítka, hned je vidět, kam co míří
+      return '<div class="tool-opts dirs">' + DIR_GLYPH.map(function (g, d) {
+        return '<button type="button" class="opt d' + d + (d === state.dir ? ' on' : '') +
+          '" data-opt="dir" data-val="' + d + '" title="' + M.DIRS[d].cz + '">' + g + '</button>';
+      }).join('') + '</div>';
+    }
+    if (def.custom) {
+      var s = '<div class="tool-opts custom"><span class="opt-label">Tvar</span><div class="opt-row shapes">';
+      s += M.SHAPES.map(function (sh) {
+        return '<button type="button" class="opt shape' + (sh.id === state.shape ? ' on' : '') +
+          '" data-opt="shape" data-val="' + sh.id + '" title="' + sh.label + '">' +
+          I.standalone({ t: 'shape', s: sh.id, col: state.color }, null, 26) + '</button>';
+      }).join('');
+      s += '</div><span class="opt-label">Barva</span><div class="opt-row colors">';
+      s += M.COLORS.map(function (cl) {
+        return '<button type="button" class="opt swatch' + (cl.id === state.color ? ' on' : '') +
+          '" data-opt="color" data-val="' + cl.id + '" title="' + cl.label +
+          '" style="background:' + cl.hex + '"></button>';
+      }).join('');
+      return s + '</div></div>';
+    }
+    return '';
+  }
+
+  function toolIcon(id) {
+    if (id === 'erase') return ERASER_ICON;
+    if (id === 'shape') return I.standalone({ t: 'shape', s: state.shape, col: state.color }, null, 44);
+    var def = M.ITEMS[id];
+    return I.standalone(id, def && def.rot ? state.dir : 0, 44);
+  }
+
   function buildTools() {
     var host = $('tools'), html = '';
     M.GROUPS.forEach(function (grp) {
       var ids = Object.keys(M.ITEMS).filter(function (k) { return M.ITEMS[k].group === grp.id; });
       if (!ids.length) return;
       html += '<div class="tool-group"><h3>' + grp.label + '</h3><div class="tool-grid">';
-      ids.forEach(function (id) {
-        var def = M.ITEMS[id];
-        html += '<button type="button" class="tool" data-tool="' + id + '" title="' + def.hint + '">' +
-          I.standalone(id, id === 'oneway' ? 1 : 2, 44) +
-          '<span>' + def.label + '</span></button>';
-      });
+      ids.forEach(function (id) { html += toolCard(id); });
       html += '</div></div>';
     });
     html += '<div class="tool-group"><h3>Mazání</h3><div class="tool-grid">' +
-      '<button type="button" class="tool" data-tool="erase" title="Smaže obsah políčka.">' +
-      ERASER_ICON + '<span>Guma</span></button></div></div>';
+      toolCard('erase') + '</div></div>';
     host.innerHTML = html;
 
     host.addEventListener('click', function (e) {
-      var b = e.target.closest('.tool');
-      if (b) selectTool(b.dataset.tool);
+      var opt = e.target.closest('.opt');
+      if (opt) {
+        var card = opt.closest('.tool');
+        if (opt.dataset.opt === 'dir') state.dir = +opt.dataset.val;
+        if (opt.dataset.opt === 'shape') state.shape = opt.dataset.val;
+        if (opt.dataset.opt === 'color') state.color = opt.dataset.val;
+        selectTool(card.dataset.tool);
+        return;
+      }
+      var main = e.target.closest('.tool-main');
+      if (main) selectTool(main.closest('.tool').dataset.tool);
     });
+  }
+
+  function toolCard(id) {
+    var def = M.ITEMS[id];
+    var label = id === 'erase' ? 'Guma' : def.label;
+    var hint = id === 'erase' ? 'Smaže obsah políčka.' : def.hint;
+    var wide = def && def.custom ? ' tool-wide' : '';
+    var on = state.tool === id;
+    return '<div class="tool' + wide + (on ? ' on' : '') + '" data-tool="' + id + '">' +
+      '<button type="button" class="tool-main" title="' + hint + '">' +
+      toolIcon(id) + '<span>' + label + '</span></button>' +
+      (on ? toolOptions(id) : '') + '</div>';
+  }
+
+  /** Překreslí jen kartu daného prvku (kvůli náhledu tvaru a natočení). */
+  function refreshToolCard(id) {
+    var el = document.querySelector('.tool[data-tool="' + id + '"]');
+    if (!el) return;
+    var tmp = document.createElement('div');
+    tmp.innerHTML = toolCard(id);
+    el.replaceWith(tmp.firstElementChild);
   }
 
   function selectTool(id) {
+    var prev = state.tool;
     state.tool = id;
+    if (prev !== id) refreshToolCard(prev);
+    refreshToolCard(id);
     document.querySelectorAll('.tool').forEach(function (b) {
       b.classList.toggle('on', b.dataset.tool === id);
     });
-    var def = M.ITEMS[id];
-    $('dirpick').hidden = !(def && def.rot);
-    syncDir();
-    setHint(id === 'erase'
-      ? 'Guma je připravená. Klikni na políčko, které chceš vymazat.'
-      : (def ? def.hint + ' Teď klikni na políčko na desce.' : ''));
   }
-
-  function syncDir() {
-    document.querySelectorAll('#dirbtns button').forEach(function (b) {
-      b.classList.toggle('on', +b.dataset.dir === state.dir);
-    });
-  }
-
-  function setHint(t) { $('hint').textContent = t; }
 
   /* ---------------- historie ---------------- */
 
@@ -101,8 +154,7 @@
   function afterBoardSwap() {
     syncHistory();
     $('title').value = state.board.title || '';
-    $('out-tx').textContent = state.board.tx;
-    $('out-ty').textContent = state.board.ty;
+    syncSizeInputs();
     renderAll();
     changed(true);
   }
@@ -115,11 +167,21 @@
       stops: state.solution ? state.solution.stops : null
     });
     updateBadge();
+    renderTilemap();
   }
 
   function updateBadge() {
-    var b = state.board;
-    $('size-badge').textContent = b.tx + '×' + b.ty + ' dlaždice (' + M.cols(b) + '×' + M.rows(b) + ' políček)';
+    var b = state.board, e = M.extent(b), n = M.tileCount(b);
+    var txt = M.isRect(b)
+      ? (e.mx + 1) + '×' + (e.my + 1) + ' dlaždice (' + M.cols(b) + '×' + M.rows(b) + ' políček)'
+      : n + ' dlaždic · ' + M.cellCount(b) + ' políček';
+    $('size-badge').textContent = txt;
+  }
+
+  function syncSizeInputs() {
+    var e = M.extent(state.board);
+    $('out-tx').textContent = e.mx + 1;
+    $('out-ty').textContent = e.my + 1;
   }
 
   function refreshCell(c, r) {
@@ -143,6 +205,18 @@
 
   /* ---------------- pokládání prvků ---------------- */
 
+  function toolOpts() {
+    return { d: state.dir, s: state.shape, col: state.color };
+  }
+
+  function sameAsTool(cur) {
+    if (!cur || cur.t !== state.tool) return false;
+    var def = M.ITEMS[state.tool];
+    if (def.rot) return cur.d === state.dir;
+    if (def.custom) return cur.s === state.shape && cur.col === state.color;
+    return true;
+  }
+
   function applyClick(c, r) {
     var cur = M.get(state.board, c, r);
     if (state.tool === 'erase') {
@@ -152,13 +226,21 @@
     var def = M.ITEMS[state.tool];
     if (!def) return;
     if (cur && cur.t === state.tool) {
-      if (def.rot) { cur.d = (cur.d + 1) & 3; state.dir = cur.d; syncDir(); }
-      else M.set(state.board, c, r, null);
-      refreshCell(c, r);
-      return;
+      if (def.rot && cur.d === state.dir) {          // druhý klik na šipku = otočí se
+        state.dir = (cur.d + 1) & 3;
+        M.set(state.board, c, r, M.makeItem(state.tool, toolOpts()));
+        refreshToolCard(state.tool);
+        refreshCell(c, r);
+        return;
+      }
+      if (sameAsTool(cur)) {                          // druhý klik na stejný prvek = smaže se
+        M.set(state.board, c, r, null);
+        refreshCell(c, r);
+        return;
+      }
     }
     var old = def.unique ? M.findFirst(state.board, state.tool) : null;
-    M.place(state.board, c, r, state.tool, state.dir);
+    M.place(state.board, c, r, state.tool, toolOpts());
     if (old) refreshCell(old.c, old.r);
     refreshCell(c, r);
   }
@@ -170,9 +252,8 @@
     }
     var def = M.ITEMS[state.tool];
     if (!def || def.unique) return;
-    var cur = M.get(state.board, c, r);
-    if (cur && cur.t === state.tool && (!def.rot || cur.d === state.dir)) return;
-    M.place(state.board, c, r, state.tool, state.dir);
+    if (sameAsTool(M.get(state.board, c, r))) return;
+    M.place(state.board, c, r, state.tool, toolOpts());
     refreshCell(c, r);
   }
 
@@ -237,7 +318,7 @@
       var touched = false;
       run.forEach(function (q) {
         var k = q.c + ',' + q.r;
-        if (stroke[k]) return;
+        if (stroke[k] || !M.inside(state.board, q.c, q.r)) return;
         stroke[k] = 1;
         applyPaint(q.c, q.r);
         touched = true;
@@ -250,28 +331,87 @@
     window.addEventListener('pointercancel', stop);
   }
 
-  /* ---------------- velikost ---------------- */
+  /* ---------------- tvar pole ---------------- */
 
-  function bindSize() {
-    document.querySelectorAll('[data-size]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var which = b.dataset.size, delta = +b.dataset.delta;
-        var tx = state.board.tx, ty = state.board.ty;
-        if (which === 'tx') tx += delta; else ty += delta;
+  var PRESETS = {
+    L: ['0,0', '0,1', '0,2', '1,2', '2,2'],
+    ring: ['0,0', '1,0', '2,0', '0,1', '2,1', '0,2', '1,2', '2,2'],
+    cross: ['1,0', '0,1', '1,1', '2,1', '1,2'],
+    zigzag: ['0,0', '1,0', '1,1', '2,1', '2,2', '3,2']
+  };
+
+  /** Mřížka dlaždic – kolem tvaru je vždy jedna řada volných míst k přidání. */
+  function renderTilemap() {
+    var b = state.board, e = M.extent(b), max = M.MAX_TILES;
+    var growX = e.mx + 1 < max, growY = e.my + 1 < max;
+    var x0 = growX ? -1 : 0, x1 = growX ? e.mx + 1 : e.mx;
+    var y0 = growY ? -1 : 0, y1 = growY ? e.my + 1 : e.my;
+    var html = '';
+    for (var y = y0; y <= y1; y++) {
+      for (var x = x0; x <= x1; x++) {
+        var on = M.hasTile(b, x, y);
+        html += '<button type="button" class="slot' + (on ? ' on' : '') +
+          '" data-tx="' + x + '" data-ty="' + y + '" title="' +
+          (on ? 'Ubrat dlaždici' : 'Přidat dlaždici') + '"></button>';
+      }
+    }
+    var map = $('tilemap');
+    map.style.gridTemplateColumns = 'repeat(' + (x1 - x0 + 1) + ', 1fr)';
+    map.innerHTML = html;
+  }
+
+  function applyTiles(tiles, askOnLoss) {
+    var lost = M.countOutsideTiles(state.board, tiles);
+    if (lost && askOnLoss &&
+      !confirm('Změnou tvaru se smaže ' + lost + ' položených prvků. Pokračovat?')) return false;
+    snapshot();
+    M.setTiles(state.board, tiles);
+    clearSolution();
+    syncSizeInputs();
+    renderAll();
+    changed();
+    return true;
+  }
+
+  function bindShape() {
+    $('tilemap').addEventListener('click', function (e) {
+      var s = e.target.closest('.slot');
+      if (!s) return;
+      var x = +s.dataset.tx, y = +s.dataset.ty;
+      var tiles = {};
+      for (var k in state.board.tiles) tiles[k] = 1;
+      var key = M.tileKey(x, y);
+      if (tiles[key]) {
+        if (M.tileCount(state.board) <= 1) return;   // aspoň jedna dlaždice musí zůstat
+        delete tiles[key];
+        applyTiles(tiles, true);
+      } else {
+        tiles[key] = 1;
+        applyTiles(tiles, false);
+      }
+    });
+
+    document.querySelectorAll('[data-size]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var e = M.extent(state.board);
+        var tx = e.mx + 1, ty = e.my + 1;
+        if (btn.dataset.size === 'tx') tx += +btn.dataset.delta; else ty += +btn.dataset.delta;
         tx = Math.max(1, Math.min(M.MAX_TILES, tx));
         ty = Math.max(1, Math.min(M.MAX_TILES, ty));
-        if (tx === state.board.tx && ty === state.board.ty) return;
-        var lost = M.countOutside(state.board, tx, ty);
-        if (lost && !confirm('Zmenšením pole se smaže ' + lost + ' položených prvků. Pokračovat?')) return;
-        snapshot();
-        state.board.tx = tx; state.board.ty = ty;
-        M.trim(state.board);
-        $('out-tx').textContent = tx;
-        $('out-ty').textContent = ty;
-        clearSolution();
-        renderAll();
-        changed();
+        var tiles = {};
+        for (var y = 0; y < ty; y++) for (var x = 0; x < tx; x++) tiles[x + ',' + y] = 1;
+        applyTiles(tiles, true);
       });
+    });
+
+    $('presets').addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-preset]');
+      if (!btn) return;
+      var list = PRESETS[btn.dataset.preset];
+      if (!list) return;
+      var tiles = {};
+      list.forEach(function (k) { tiles[k] = 1; });
+      applyTiles(tiles, true);
     });
   }
 
@@ -294,7 +434,7 @@
       $('gen-note').textContent = '';
       setTimeout(function () {
         var res = G.generate({
-          tx: state.board.tx, ty: state.board.ty,
+          tiles: state.board.tiles,
           difficulty: state.difficulty,
           stars: $('gen-stars').checked,
           oneway: $('gen-oneway').checked,
@@ -304,7 +444,7 @@
         btn.disabled = false;
         btn.textContent = 'Vygenerovat bludiště';
         if (!res) {
-          $('gen-note').textContent = 'Na tak malém poli se nepodařilo vymyslet rozumné bludiště. Zkus větší pole nebo lehčí obtížnost.';
+          $('gen-note').textContent = 'V tomhle tvaru se nepodařilo vymyslet rozumné bludiště. Zkus větší pole nebo lehčí obtížnost.';
           return;
         }
         snapshot();
@@ -358,13 +498,17 @@
       var blank = dlg.querySelector('input[value="blank"]').checked;
       $('blank-opts').classList.toggle('off', !blank);
       $('print-solution').disabled = blank;
+      var same = $('blank-same').checked;
+      ['blank-tx', 'blank-ty'].forEach(function (id) { $(id).disabled = same; });
     }
 
     dlg.addEventListener('change', syncBlank);
 
     $('btn-print').addEventListener('click', function () {
-      $('blank-tx').value = state.board.tx;
-      $('blank-ty').value = state.board.ty;
+      var e = M.extent(state.board);
+      $('blank-tx').value = e.mx + 1;
+      $('blank-ty').value = e.my + 1;
+      $('blank-same').checked = !M.isRect(state.board);
       syncBlank();
       dlg.showModal();
     });
@@ -381,7 +525,8 @@
           tx: Math.max(1, Math.min(M.MAX_TILES, +$('blank-tx').value || 2)),
           ty: Math.max(1, Math.min(M.MAX_TILES, +$('blank-ty').value || 2)),
           copies: Math.max(1, Math.min(20, +$('blank-copies').value || 1)),
-          legend: $('blank-legend').checked
+          legend: $('blank-legend').checked,
+          sameShape: $('blank-same').checked
         }
       });
     });
@@ -447,6 +592,10 @@
     document.querySelectorAll('[data-close]').forEach(function (b) {
       b.addEventListener('click', function () { b.closest('dialog').close(); });
     });
+    // klik mimo okno dialog zavře
+    document.querySelectorAll('dialog').forEach(function (d) {
+      d.addEventListener('click', function (e) { if (e.target === d) d.close(); });
+    });
   }
 
   /* ---------------- start ---------------- */
@@ -454,10 +603,11 @@
   function init() {
     var b = ST.loadFromHash() || ST.loadLocal() || M.createBoard(2, 2);
     state.board = b;
+    state.tool = M.findFirst(b, 'start') ? 'wall' : 'start';
 
     buildTools();
     bindBoard();
-    bindSize();
+    bindShape();
     bindGenerator();
     bindSolver();
     bindPrint();
@@ -466,8 +616,7 @@
 
     $('title').value = b.title || '';
     $('title').addEventListener('input', function () { changed(true); });
-    $('out-tx').textContent = b.tx;
-    $('out-ty').textContent = b.ty;
+    syncSizeInputs();
 
     $('btn-undo').addEventListener('click', undo);
     $('btn-redo').addEventListener('click', redo);
@@ -481,20 +630,12 @@
       changed();
     });
 
-    $('dirbtns').addEventListener('click', function (e) {
-      var b2 = e.target.closest('[data-dir]');
-      if (!b2) return;
-      state.dir = +b2.dataset.dir;
-      syncDir();
-    });
-
     document.addEventListener('keydown', function (e) {
       if (!(e.ctrlKey || e.metaKey)) return;
       if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); undo(); }
       if (e.key === 'y' || e.key === 'Y') { e.preventDefault(); redo(); }
     });
 
-    selectTool(M.findFirst(b, 'start') ? 'wall' : 'start');
     syncHistory();
     renderAll();
   }

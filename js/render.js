@@ -1,12 +1,17 @@
-/* VEX Bludiště – vykreslení desky do SVG. */
+/* VEX Bludiště – vykreslení desky do SVG.
+ * Deska se kreslí po dlaždicích, takže zvládne i tvar L, okruh nebo díru uprostřed.
+ */
 (function () {
   var VEX = (window.VEX = window.VEX || {});
   var M = VEX.model, I = VEX.icons;
 
   var CELL = 100;   // vnitřní souřadnice na jedno políčko
-  var PAD = 26;     // rám desky kolem políček
+  var TS = 3 * CELL; // strana dlaždice
+  var PAD = 26;     // rám kolem celé desky
   var INSET = 6;    // odsazení rámečku políčka
   var GAP = 15;     // mezera uprostřed každé strany rámečku
+  var RX = 16;      // zaoblení dlaždice
+  var NUB = 13;     // výška konektoru na okraji
 
   /** Rámeček políčka: zaoblený čtverec přerušený uprostřed každé strany. */
   function framePath(s, r, g) {
@@ -21,38 +26,57 @@
 
   var FRAME = framePath(CELL - 2 * INSET, 19, GAP);
 
-  function plate(w, h, tx, ty, eco) {
+  /* Podklad: jedna zaoblená dlaždice na každou položenou dlaždici.
+   * Sousedící dlaždice se spojí přemostěním, aby mezi nimi nebyly zářezy.
+   * Konektory se kreslí jen na okrajích, které nemají soused, a čouhají ven. */
+  function plate(b, eco) {
     if (eco) return '';
-    var W = w * CELL + 2 * PAD, H = h * CELL + 2 * PAD, s = '', t, i;
-    s += '<rect x="1" y="1" width="' + (W - 2) + '" height="' + (H - 2) + '" rx="26" fill="#ededed" stroke="#d8d8d8" stroke-width="2"/>';
-    // konektory jako u skládacích podložek
-    for (t = 0; t < tx; t++) {
-      for (i = 0; i < 2; i++) {
-        var x = PAD + t * 3 * CELL + 85 + i * 120;
-        s += '<rect x="' + x + '" y="6" width="60" height="13" rx="5" fill="#9b9b9b"/>';
-        s += '<rect x="' + x + '" y="' + (H - 19) + '" width="60" height="13" rx="5" fill="#9b9b9b"/>';
+    var tiles = M.tileList(b), s = '', i, t, x, y, k;
+
+    for (i = 0; i < tiles.length; i++) {
+      t = tiles[i]; x = PAD + t.x * TS; y = PAD + t.y * TS;
+      s += '<rect x="' + x + '" y="' + y + '" width="' + TS + '" height="' + TS +
+        '" rx="' + RX + '" fill="#ededed" stroke="#dcdcdc" stroke-width="2"/>';
+    }
+    for (i = 0; i < tiles.length; i++) {
+      t = tiles[i]; x = PAD + t.x * TS; y = PAD + t.y * TS;
+      if (M.hasTile(b, t.x + 1, t.y)) {
+        s += '<rect x="' + (x + TS - RX) + '" y="' + y + '" width="' + (2 * RX) + '" height="' + TS + '" fill="#ededed"/>';
+      }
+      if (M.hasTile(b, t.x, t.y + 1)) {
+        s += '<rect x="' + x + '" y="' + (y + TS - RX) + '" width="' + TS + '" height="' + (2 * RX) + '" fill="#ededed"/>';
       }
     }
-    for (t = 0; t < ty; t++) {
-      for (i = 0; i < 2; i++) {
-        var y = PAD + t * 3 * CELL + 85 + i * 120;
-        s += '<rect x="6" y="' + y + '" width="13" height="60" rx="5" fill="#9b9b9b"/>';
-        s += '<rect x="' + (W - 19) + '" y="' + y + '" width="13" height="60" rx="5" fill="#9b9b9b"/>';
+    for (i = 0; i < tiles.length; i++) {
+      t = tiles[i]; x = PAD + t.x * TS; y = PAD + t.y * TS;
+      for (k = 0; k < 2; k++) {
+        var off = 85 + k * 120;
+        if (!M.hasTile(b, t.x, t.y - 1)) s += nub(x + off, y - NUB, 60, NUB);
+        if (!M.hasTile(b, t.x, t.y + 1)) s += nub(x + off, y + TS, 60, NUB);
+        if (!M.hasTile(b, t.x - 1, t.y)) s += nub(x - NUB, y + off, NUB, 60);
+        if (!M.hasTile(b, t.x + 1, t.y)) s += nub(x + TS, y + off, NUB, 60);
       }
     }
     return s;
   }
 
-  function seams(w, h, eco) {
-    var s = '', i;
-    var col = eco ? '#e6e6e6' : '#dcdcdc';
-    for (i = 3; i < w; i += 3) {
-      s += '<line x1="' + (PAD + i * CELL) + '" y1="' + PAD + '" x2="' + (PAD + i * CELL) +
-        '" y2="' + (PAD + h * CELL) + '" stroke="' + col + '" stroke-width="3"/>';
-    }
-    for (i = 3; i < h; i += 3) {
-      s += '<line x1="' + PAD + '" y1="' + (PAD + i * CELL) + '" x2="' + (PAD + w * CELL) +
-        '" y2="' + (PAD + i * CELL) + '" stroke="' + col + '" stroke-width="3"/>';
+  function nub(x, y, w, h) {
+    return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="5" fill="#9b9b9b"/>';
+  }
+
+  /** Spáry jen mezi sousedícími dlaždicemi. */
+  function seams(b, eco) {
+    var tiles = M.tileList(b), s = '', col = eco ? '#e6e6e6' : '#d2d2d2', i, t, x, y;
+    for (i = 0; i < tiles.length; i++) {
+      t = tiles[i]; x = PAD + t.x * TS; y = PAD + t.y * TS;
+      if (M.hasTile(b, t.x + 1, t.y)) {
+        s += '<line x1="' + (x + TS) + '" y1="' + y + '" x2="' + (x + TS) + '" y2="' + (y + TS) +
+          '" stroke="' + col + '" stroke-width="3"/>';
+      }
+      if (M.hasTile(b, t.x, t.y + 1)) {
+        s += '<line x1="' + x + '" y1="' + (y + TS) + '" x2="' + (x + TS) + '" y2="' + (y + TS) +
+          '" stroke="' + col + '" stroke-width="3"/>';
+      }
     }
     return s;
   }
@@ -65,26 +89,32 @@
       (item ? I.draw(item) : '');
   }
 
-  function cellsLayer(b, w, h) {
-    var s = '', c, r;
-    for (r = 0; r < h; r++) {
-      for (c = 0; c < w; c++) {
-        s += '<g id="cell-' + c + '-' + r + '" transform="translate(' +
-          (PAD + c * CELL) + ' ' + (PAD + r * CELL) + ')">' +
-          cellContent(M.get(b, c, r)) + '</g>';
+  /** Projde jen políčka, která na desce opravdu existují. */
+  function eachCell(b, fn) {
+    var tiles = M.tileList(b), i, dx, dy;
+    for (i = 0; i < tiles.length; i++) {
+      for (dy = 0; dy < 3; dy++) {
+        for (dx = 0; dx < 3; dx++) fn(tiles[i].x * 3 + dx, tiles[i].y * 3 + dy);
       }
     }
+  }
+
+  function cellsLayer(b) {
+    var s = '';
+    eachCell(b, function (c, r) {
+      s += '<g id="cell-' + c + '-' + r + '" transform="translate(' +
+        (PAD + c * CELL) + ' ' + (PAD + r * CELL) + ')">' +
+        cellContent(M.get(b, c, r)) + '</g>';
+    });
     return s;
   }
 
-  function hitLayer(w, h) {
-    var s = '<g class="hits">', c, r;
-    for (r = 0; r < h; r++) {
-      for (c = 0; c < w; c++) {
-        s += '<rect class="hit" data-c="' + c + '" data-r="' + r + '" x="' + (PAD + c * CELL) +
-          '" y="' + (PAD + r * CELL) + '" width="' + CELL + '" height="' + CELL + '" fill="transparent"/>';
-      }
-    }
+  function hitLayer(b) {
+    var s = '<g class="hits">';
+    eachCell(b, function (c, r) {
+      s += '<rect class="hit" data-c="' + c + '" data-r="' + r + '" x="' + (PAD + c * CELL) +
+        '" y="' + (PAD + r * CELL) + '" width="' + CELL + '" height="' + CELL + '" fill="transparent"/>';
+    });
     return s + '</g>';
   }
 
@@ -113,37 +143,51 @@
 
   /**
    * Sestaví SVG desky.
-   * opts: { eco, solution:[cells], stops:[cells], cssClass }
+   * opts: { eco, solution:[cells], stops:[cells], noHits, cssClass }
    */
   function boardSVG(b, opts) {
     opts = opts || {};
-    var w = M.cols(b), h = M.rows(b);
-    var W = w * CELL + 2 * PAD, H = h * CELL + 2 * PAD;
+    var e = M.extent(b);
+    var W = (e.mx + 1) * TS + 2 * PAD, H = (e.my + 1) * TS + 2 * PAD;
     return '<svg class="board ' + (opts.cssClass || '') + '" viewBox="0 0 ' + W + ' ' + H +
       '" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" role="img" aria-label="deska bludiště">' +
-      plate(w, h, b.tx, b.ty, opts.eco) +
-      seams(w, h, opts.eco) +
-      cellsLayer(b, w, h) +
+      plate(b, opts.eco) +
+      seams(b, opts.eco) +
+      cellsLayer(b) +
       solutionLayer(opts.solution, opts.stops) +
-      (opts.noHits ? '' : hitLayer(w, h)) +
+      (opts.noHits ? '' : hitLayer(b)) +
       '</svg>';
   }
 
-  /** Legenda – jen prvky, které jsou na desce (nebo zadaný seznam). */
-  function legendHTML(types) {
-    if (!types || !types.length) return '';
+  /**
+   * Legenda. Přijme seznam klíčů prvků, nebo řádky {item, text}
+   * z M.legendItems(), aby se vlastní značky vykreslily přesně tak,
+   * jak jsou na desce.
+   */
+  function legendHTML(rows) {
+    if (!rows || !rows.length) return '';
     var s = '<div class="legend">';
-    types.forEach(function (t) {
-      var def = M.ITEMS[t];
-      if (!def) return;
-      s += '<div class="legend-item">' + I.standalone(t, t === 'oneway' ? 1 : 0, 54) +
-        '<span>' + def.legend + '</span></div>';
+    rows.forEach(function (row) {
+      var item, text;
+      if (typeof row === 'string') {
+        var def = M.ITEMS[row];
+        if (!def) return;
+        item = M.makeItem(row, { d: row === 'oneway' ? 1 : 0 });
+        text = def.legend;
+      } else {
+        item = row.item;
+        text = row.text;
+        // jednosměrku v legendě ukazujeme vždy jako obecné pravidlo doprava
+        if (item.t === 'oneway') item = { t: 'oneway', d: 1 };
+      }
+      s += '<div class="legend-item">' + I.standalone(item, null, 54) +
+        '<span>' + text + '</span></div>';
     });
     return s + '</div>';
   }
 
   VEX.render = {
-    CELL: CELL, PAD: PAD,
+    CELL: CELL, PAD: PAD, TS: TS,
     boardSVG: boardSVG,
     cellContent: cellContent,
     solutionLayer: solutionLayer,

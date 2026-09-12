@@ -94,9 +94,43 @@
         '<path d="M50 26 L64 52 H55 V70 H45 V52 H36 Z" fill="' + C.ink + '"/></g>';
     },
 
-    mred: function () { return '<rect x="22" y="22" width="56" height="56" rx="8" fill="' + C.red + '"/>'; },
-    mgreen: function () { return '<circle cx="50" cy="50" r="28" fill="' + C.green + '"/>'; },
-    mblue: function () { return '<circle cx="50" cy="50" r="28" fill="' + C.blue + '"/>'; }
+    shape: function (it) {
+      var M = window.VEX.model;
+      var col = M.colorById(it && it.col).hex;
+      var s = M.shapeById(it && it.s).id;
+      var body = SHAPE_PATH[s] || SHAPE_PATH.circle;
+      return body(col);
+    }
+  };
+
+  /* Základní tvary pro prvek „vlastní tvar“ – čtverec 100x100. */
+  function hexPath(cx, cy, r) {
+    var d = '', i, a;
+    for (i = 0; i < 6; i++) {
+      a = (Math.PI / 3) * i - Math.PI / 2;
+      d += (i ? 'L' : 'M') + (cx + Math.cos(a) * r).toFixed(2) + ' ' + (cy + Math.sin(a) * r).toFixed(2) + ' ';
+    }
+    return d + 'Z';
+  }
+
+  function shaped(d, col) {
+    return '<path d="' + d + '" fill="' + col + '" stroke="rgba(0,0,0,.28)" stroke-width="2.5" stroke-linejoin="round"/>';
+  }
+
+  var SHAPE_PATH = {
+    circle: function (col) {
+      return '<circle cx="50" cy="50" r="29" fill="' + col + '" stroke="rgba(0,0,0,.28)" stroke-width="2.5"/>';
+    },
+    square: function (col) {
+      return '<rect x="22" y="22" width="56" height="56" rx="7" fill="' + col +
+        '" stroke="rgba(0,0,0,.28)" stroke-width="2.5"/>';
+    },
+    triangle: function (col) { return shaped('M50 18 L80 72 H20 Z', col); },
+    diamond: function (col) { return shaped('M50 17 L81 50 L50 83 L19 50 Z', col); },
+    hexagon: function (col) { return shaped(hexPath(50, 50, 31), col); },
+    heart: function (col) {
+      return shaped('M50 81 C13 56 17 29 34 25 C44 22 49 29 50 35 C51 29 56 22 66 25 C83 29 87 56 50 81 Z', col);
+    }
   };
 
   /** Vykreslí ikonu prvku do čtverce 100x100. */
@@ -105,12 +139,21 @@
     return f ? f(item) : '';
   }
 
-  /** Samostatná SVG ikona (paleta, legenda). */
-  function standalone(type, dir, size) {
-    var s = size || 44;
+  /**
+   * Samostatná SVG ikona (paleta, legenda, nápověda).
+   * type může být klíč prvku, nebo přímo hotový prvek {t,d,s,col}.
+   * opts je číslo (natočení) nebo objekt {d, s, col}.
+   */
+  function standalone(type, opts, size) {
+    var s = size || 44, item;
+    if (type && typeof type === 'object') item = type;
+    else {
+      if (typeof opts === 'number') opts = { d: opts };
+      item = window.VEX.model.makeItem(type, opts) || { t: type };
+    }
     return '<svg class="ico" viewBox="0 0 100 100" width="' + s + '" height="' + s +
       '" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
-      draw({ t: type, d: dir | 0 }) + '</svg>';
+      draw(item) + '</svg>';
   }
 
   VEX.icons = { draw: draw, standalone: standalone, colors: C, starPath: starPath };

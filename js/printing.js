@@ -67,8 +67,11 @@
 
     if (opts.mode === 'blank') {
       var bt = opts.blank;
-      var blank = M.createBoard(bt.tx, bt.ty);
-      var landscape = bt.tx >= bt.ty;
+      var blank = bt.sameShape && opts.board
+        ? M.boardFromTiles(opts.board.tiles)
+        : M.createBoard(bt.tx, bt.ty);
+      var be = M.extent(blank);
+      var landscape = be.mx >= be.my;
       var legend = bt.legend ? R.legendHTML(['wall', 'oneway', 'star', 'sound', 'finish', 'start']) : '';
       var svg = fitted(R.boardSVG(blank, { eco: opts.eco, noHits: true }), landscape, !!legend);
       setPageOrientation(landscape);
@@ -81,8 +84,7 @@
     } else {
       var b = opts.board;
       var land = M.cols(b) >= M.rows(b);
-      var used = M.usedTypes(b).filter(function (t) { return t !== 'mred' && t !== 'mgreen' && t !== 'mblue'; });
-      var legend2 = R.legendHTML(used);
+      var legend2 = R.legendHTML(M.legendItems(b));
       var svg2 = fitted(R.boardSVG(b, { eco: opts.eco, noHits: true }), land, !!legend2);
       setPageOrientation(land);
       html += page(head(b.title || 'Bludiště', 'Jméno: ______________________     Třída: __________') + body(svg2, legend2));

@@ -1,12 +1,14 @@
 /* VEX Bludiště – datový model desky
- * Deska se skládá z dlaždic 3x3 políčka. V každém políčku může být nejvýš jeden prvek.
- * Nový prvek se přidá jednoduše zápisem do tabulky ITEMS + kresbou ikony v js/icons.js.
+ * Deska je sada dlaždic 3x3 políčka, poskládaná do libovolného tvaru
+ * (obdélník, písmeno L, okruh s dírou uprostřed…). V každém políčku
+ * může být nejvýš jeden prvek.
+ * Nový prvek se přidá zápisem do tabulky ITEMS + kresbou ikony v js/icons.js.
  */
 (function () {
   var VEX = (window.VEX = window.VEX || {});
 
   var TILE = 3;          // políček na dlaždici
-  var MAX_TILES = 8;     // rozumný strop, aby se to dalo vytisknout
+  var MAX_TILES = 8;     // strop na šířku i výšku, aby se to dalo vytisknout
 
   /* Směry: 0 = nahoru, 1 = doprava, 2 = dolů, 3 = doleva */
   var DIRS = [
@@ -16,8 +18,39 @@
     { dx: -1, dy: 0, cz: 'doleva' }
   ];
 
+  /* Tvary a barvy pro prvek „vlastní tvar“ */
+  var SHAPES = [
+    { id: 'circle', label: 'Kolečko' },
+    { id: 'square', label: 'Čtverec' },
+    { id: 'triangle', label: 'Trojúhelník' },
+    { id: 'diamond', label: 'Kosočtverec' },
+    { id: 'hexagon', label: 'Šestiúhelník' },
+    { id: 'heart', label: 'Srdce' }
+  ];
+
+  var COLORS = [
+    { id: 'red', label: 'Červená', hex: '#e0262c' },
+    { id: 'orange', label: 'Oranžová', hex: '#ef7d16' },
+    { id: 'yellow', label: 'Žlutá', hex: '#ffc61e' },
+    { id: 'green', label: 'Zelená', hex: '#2fa84f' },
+    { id: 'blue', label: 'Modrá', hex: '#2a6fd6' },
+    { id: 'purple', label: 'Fialová', hex: '#8e44ad' },
+    { id: 'brown', label: 'Hnědá', hex: '#8a5a2b' },
+    { id: 'black', label: 'Černá', hex: '#2b2b2b' }
+  ];
+
+  function shapeById(id) {
+    for (var i = 0; i < SHAPES.length; i++) if (SHAPES[i].id === id) return SHAPES[i];
+    return SHAPES[0];
+  }
+  function colorById(id) {
+    for (var i = 0; i < COLORS.length; i++) if (COLORS[i].id === id) return COLORS[i];
+    return COLORS[0];
+  }
+
   /* Registr prvků.
    *   rot    – prvek má natočení (0..3)
+   *   custom – prvek má volbu tvaru a barvy
    *   unique – na desce smí být jen jeden
    *   blocks – políčko je neprůjezdné
    *   task   – robot na políčku musí něco udělat (generátor to zahrne do trasy)
@@ -59,29 +92,96 @@
       hint: 'Tady se musí robot rozsvítit.',
       legend: 'rozsviť se'
     },
-    mred: { label: 'Červené pole', group: 'znacky', hint: 'Barevná značka podle vlastního zadání.', legend: 'barevná značka' },
-    mgreen: { label: 'Zelené pole', group: 'znacky', hint: 'Barevná značka podle vlastního zadání.', legend: 'barevná značka' },
-    mblue: { label: 'Modré pole', group: 'znacky', hint: 'Barevná značka podle vlastního zadání.', legend: 'barevná značka' }
+    shape: {
+      label: 'Vlastní tvar', group: 'znacky', custom: true,
+      hint: 'Značka podle vlastního zadání – vyber si tvar a barvu.',
+      legend: 'vlastní značka'
+    }
   };
 
   var GROUPS = [
     { id: 'trasa', label: 'Trasa' },
     { id: 'prekazky', label: 'Překážky' },
     { id: 'ukoly', label: 'Úkoly' },
-    { id: 'znacky', label: 'Barevné značky' }
+    { id: 'znacky', label: 'Značka' }
   ];
 
-  function createBoard(tx, ty) {
-    return { v: 1, tx: tx || 2, ty: ty || 2, title: '', cells: {} };
+  /* ---------- dlaždice ---------- */
+
+  function tileKey(x, y) { return x + ',' + y; }
+  function hasTile(b, x, y) { return !!b.tiles[tileKey(x, y)]; }
+
+  function tileList(b) {
+    var out = [];
+    for (var k in b.tiles) {
+      var p = k.split(',');
+      out.push({ x: +p[0], y: +p[1] });
+    }
+    return out;
   }
 
-  function cols(b) { return b.tx * TILE; }
-  function rows(b) { return b.ty * TILE; }
+  function tileCount(b) { return Object.keys(b.tiles).length; }
+
+  function extent(b) {
+    var mx = 0, my = 0;
+    for (var k in b.tiles) {
+      var p = k.split(',');
+      if (+p[0] > mx) mx = +p[0];
+      if (+p[1] > my) my = +p[1];
+    }
+    return { mx: mx, my: my };
+  }
+
+  /** Posune dlaždice i políčka tak, aby tvar začínal na 0,0. */
+  function normalize(b) {
+    var minx = Infinity, miny = Infinity, k, p;
+    for (k in b.tiles) {
+      p = k.split(',');
+      if (+p[0] < minx) minx = +p[0];
+      if (+p[1] < miny) miny = +p[1];
+    }
+    if (minx === Infinity) { b.tiles = { '0,0': 1 }; return; }
+    if (!minx && !miny) return;
+    var nt = {}, nc = {};
+    for (k in b.tiles) { p = k.split(','); nt[tileKey(+p[0] - minx, +p[1] - miny)] = 1; }
+    for (k in b.cells) { p = k.split(','); nc[(+p[0] - minx * TILE) + ',' + (+p[1] - miny * TILE)] = b.cells[k]; }
+    b.tiles = nt; b.cells = nc;
+  }
+
+  /** Je tvar plný obdélník? (jen pro popisek velikosti) */
+  function isRect(b) {
+    var e = extent(b);
+    return tileCount(b) === (e.mx + 1) * (e.my + 1);
+  }
+
+  function createBoard(tx, ty) {
+    var b = { v: 2, tiles: {}, cells: {}, title: '' };
+    for (var y = 0; y < (ty || 2); y++) {
+      for (var x = 0; x < (tx || 2); x++) b.tiles[tileKey(x, y)] = 1;
+    }
+    return b;
+  }
+
+  function boardFromTiles(tiles) {
+    var b = { v: 2, tiles: {}, cells: {}, title: '' };
+    for (var k in tiles) if (tiles[k]) b.tiles[k] = 1;
+    normalize(b);
+    return b;
+  }
+
+  /* ---------- políčka ---------- */
+
+  function cols(b) { return (extent(b).mx + 1) * TILE; }
+  function rows(b) { return (extent(b).my + 1) * TILE; }
   function key(c, r) { return c + ',' + r; }
 
+  /** Existuje políčko? (leží na některé položené dlaždici) */
   function inside(b, c, r) {
-    return c >= 0 && r >= 0 && c < cols(b) && r < rows(b);
+    if (c < 0 || r < 0) return false;
+    return hasTile(b, Math.floor(c / TILE), Math.floor(r / TILE));
   }
+
+  function cellCount(b) { return tileCount(b) * TILE * TILE; }
 
   function get(b, c, r) { return b.cells[key(c, r)] || null; }
 
@@ -91,16 +191,30 @@
     else b.cells[key(c, r)] = item;
   }
 
-  /** Položí prvek; u unikátních prvků nejdřív odstraní ten starý. */
-  function place(b, c, r, type, dir) {
-    if (!inside(b, c, r)) return false;
+  /** Sestaví prvek podle registru – vezme jen ta pole, která prvek opravdu má. */
+  function makeItem(type, opts) {
     var def = ITEMS[type];
-    if (!def) return false;
-    if (def.unique) {
+    if (!def) return null;
+    var it = { t: type };
+    opts = opts || {};
+    if (def.rot) it.d = (opts.d | 0) & 3;
+    if (def.custom) {
+      it.s = shapeById(opts.s).id;
+      it.col = colorById(opts.col).id;
+    }
+    return it;
+  }
+
+  /** Položí prvek; u unikátních prvků nejdřív odstraní ten starý. */
+  function place(b, c, r, type, opts) {
+    if (!inside(b, c, r)) return false;
+    var it = makeItem(type, opts);
+    if (!it) return false;
+    if (ITEMS[type].unique) {
       var old = findFirst(b, type);
       if (old) set(b, old.c, old.r, null);
     }
-    set(b, c, r, def.rot ? { t: type, d: dir | 0 } : { t: type });
+    set(b, c, r, it);
     return true;
   }
 
@@ -131,18 +245,34 @@
     return findAll(b, function (it) { return ITEMS[it.t] && ITEMS[it.t].task; });
   }
 
+  /** Řádky legendy podle toho, co na desce opravdu je.
+   * Vlastní značky se rozepíšou na každý použitý tvar a barvu zvlášť. */
+  function legendItems(b) {
+    var order = Object.keys(ITEMS), seen = {}, out = [];
+    for (var k in b.cells) {
+      var it = b.cells[k], def = ITEMS[it.t];
+      if (!def) continue;
+      var id = def.custom ? it.t + ':' + it.s + ':' + it.col : it.t;
+      if (seen[id]) continue;
+      seen[id] = 1;
+      out.push({ item: it, text: def.legend, sort: order.indexOf(it.t) });
+    }
+    out.sort(function (a, z) { return a.sort - z.sort; });
+    return out;
+  }
+
   /** Prvky použité na desce – pro legendu. */
   function usedTypes(b) {
-    var seen = {}, out = [];
+    var seen = {}, out = [], order = Object.keys(ITEMS);
     for (var k in b.cells) {
       var t = b.cells[k].t;
       if (!seen[t] && ITEMS[t]) { seen[t] = 1; out.push(t); }
     }
-    out.sort(function (a, z) { return Object.keys(ITEMS).indexOf(a) - Object.keys(ITEMS).indexOf(z); });
+    out.sort(function (a, z) { return order.indexOf(a) - order.indexOf(z); });
     return out;
   }
 
-  /** Ořízne prvky mimo desku (po zmenšení). Vrací počet ztracených prvků. */
+  /** Zahodí prvky, které leží mimo položené dlaždice. Vrací počet ztracených. */
   function trim(b) {
     var lost = 0;
     for (var k in b.cells) {
@@ -152,13 +282,26 @@
     return lost;
   }
 
-  function countOutside(b, tx, ty) {
+  /** Kolik prvků by se ztratilo, kdyby deska měla zadané dlaždice. */
+  function countOutsideTiles(b, tiles) {
     var n = 0;
     for (var k in b.cells) {
       var p = k.split(',');
-      if (+p[0] >= tx * TILE || +p[1] >= ty * TILE) n++;
+      var tk = tileKey(Math.floor(+p[0] / TILE), Math.floor(+p[1] / TILE));
+      if (!tiles[tk]) n++;
     }
     return n;
+  }
+
+  /** Vymění tvar desky a ořízne prvky mimo něj. */
+  function setTiles(b, tiles) {
+    var nt = {};
+    for (var k in tiles) if (tiles[k]) nt[k] = 1;
+    if (!Object.keys(nt).length) return false;
+    b.tiles = nt;
+    normalize(b);
+    trim(b);
+    return true;
   }
 
   function clone(b) { return JSON.parse(JSON.stringify(b)); }
@@ -167,9 +310,14 @@
 
   VEX.model = {
     TILE: TILE, MAX_TILES: MAX_TILES, DIRS: DIRS, ITEMS: ITEMS, GROUPS: GROUPS,
-    createBoard: createBoard, cols: cols, rows: rows, key: key, inside: inside,
-    get: get, set: set, place: place, findFirst: findFirst, findAll: findAll,
-    tasks: tasks, usedTypes: usedTypes, trim: trim, countOutside: countOutside,
-    clone: clone, isEmpty: isEmpty
+    SHAPES: SHAPES, COLORS: COLORS, shapeById: shapeById, colorById: colorById,
+    createBoard: createBoard, boardFromTiles: boardFromTiles,
+    tileKey: tileKey, hasTile: hasTile, tileList: tileList, tileCount: tileCount,
+    extent: extent, normalize: normalize, isRect: isRect, setTiles: setTiles,
+    cols: cols, rows: rows, key: key, inside: inside, cellCount: cellCount,
+    get: get, set: set, place: place, makeItem: makeItem,
+    findFirst: findFirst, findAll: findAll, tasks: tasks, usedTypes: usedTypes,
+    legendItems: legendItems,
+    trim: trim, countOutsideTiles: countOutsideTiles, clone: clone, isEmpty: isEmpty
   };
 })();
