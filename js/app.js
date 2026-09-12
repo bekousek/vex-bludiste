@@ -56,7 +56,6 @@
     });
     var def = M.ITEMS[id];
     $('dirpick').hidden = !(def && def.rot);
-    if (def && def.rot && id === 'start') state.dir = state.dir;
     syncDir();
     setHint(id === 'erase'
       ? 'Guma je připravená. Klikni na políčko, které chceš vymazat.'
