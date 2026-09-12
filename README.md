@@ -3,7 +3,7 @@
 Webová aplikace pro tvorbu bludišť na dlaždicových polích pro roboty **VEX 123** a **VEX GO**.
 Učitel si bludiště naklikne, nebo si ho nechá vygenerovat, zkontroluje řešení a vytiskne.
 
-**Aplikace:** https://bekousek.github.io/VEX-bludiste/
+**Aplikace:** https://bekousek.github.io/vex-bludiste/
 
 ---
 
