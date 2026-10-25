@@ -170,7 +170,7 @@
       ' clip-path="url(#' + id + ')" fill="#7b4fd6" fill-opacity="0.13"' +
       ' stroke="#7b4fd6" stroke-opacity="0.35" stroke-width="3"/>';
 
-    look.items.forEach(function (o) {
+    look.items.forEach(function (o, i) {
       var x = PAD + o.c * CELL + CELL / 2, y = PAD + o.r * CELL + CELL / 2;
       var col = o.visible ? '#1f8a4c' : '#c62828';
       var def = M.ITEMS[o.item.t] || {};
@@ -178,7 +178,9 @@
         ? def.legend + (o.item.n != null ? ' ' + o.item.n : '') +
           ', ' + (o.bearing > 0 ? '+' : '') + o.bearing + '°'
         : o.why;
-      var ty = y - 56 < PAD + 18 ? y + 70 : y - 56;
+      // popisky střídavě nad a pod políčko, ať se dva sousedi nepřekrývají
+      var ty = i % 2 ? y + 70 : y - 56;
+      if (ty < PAD + 18) ty = y + 70;
       s += '<circle cx="' + x + '" cy="' + y + '" r="46" fill="none" stroke="' + col +
         '" stroke-width="6"' + (o.visible ? '' : ' stroke-dasharray="14 10"') + '/>' +
         '<text x="' + x + '" y="' + ty + '" text-anchor="middle" font-size="22" font-weight="700"' +

@@ -2,7 +2,8 @@
 (function () {
   var VEX = window.VEX;
   var M = VEX.model, R = VEX.render, I = VEX.icons, S = VEX.solver, G = VEX.generator,
-    ST = VEX.storage, P = VEX.printing, UI = VEX.userIcons;
+    ST = VEX.storage, P = VEX.printing, UI = VEX.userIcons,
+    AS = VEX.aimsolver, AV = VEX.aimvision, GA = VEX.aimgenerator;
 
   var $ = function (id) { return document.getElementById(id); };
 
@@ -10,13 +11,19 @@
     board: null,
     tool: 'wall',
     dir: 1,
+    tagNum: 1,
     shape: 'circle',
     color: 'red',
     undo: [],
     redo: [],
     solution: null,
+    variants: null,     // tři varianty řešení v režimu AIM
+    variant: 'buttons', // která z nich se vypisuje
+    camera: false,
     difficulty: 'medium'
   };
+
+  function isAim() { return M.isAim(state.board); }
 
   var DIR_GLYPH = ['▲', '▶', '▼', '◀'];
 
@@ -45,6 +52,15 @@
           '" data-opt="dir" data-val="' + d + '" title="' + M.DIRS[d].cz + '">' + g + '</button>';
       }).join('') + '</div>';
     }
+    if (def.num) {
+      // číslo AprilTagu se vybírá stejně jako natočení startu, přímo v tlačítku
+      var n = '<div class="tool-opts nums">';
+      for (var i = 0; i <= M.MAX_TAG; i++) {
+        n += '<button type="button" class="opt' + (i === state.tagNum ? ' on' : '') +
+          '" data-opt="num" data-val="' + i + '" title="AprilTag ' + i + '">' + i + '</button>';
+      }
+      return n + '</div>';
+    }
     if (def.custom) {
       var s = '<div class="tool-opts custom"><span class="opt-label">Tvar</span><div class="opt-row shapes">';
       s += M.SHAPES.map(function (sh) {
@@ -68,6 +84,7 @@
     if (id === 'shape') return I.standalone({ t: 'shape', s: state.shape, col: state.color }, null, 44);
     if (toolType(id) === 'own') return I.standalone({ t: 'own', ico: toolIco(id) }, null, 44);
     var def = M.ITEMS[id];
+    if (def && def.num) return I.standalone({ t: id, n: state.tagNum }, null, 44);
     return I.standalone(id, def && def.rot ? state.dir : 0, 44);
   }
 
@@ -77,11 +94,12 @@
     });
   }
 
+  /** Paleta se staví podle toho, komu deska patří – každý robot má své prvky. */
   function buildTools() {
-    var host = $('tools'), html = '';
-    M.GROUPS.forEach(function (grp) {
+    var host = $('tools'), html = '', keys = M.itemsFor(state.board);
+    M.groupsFor(state.board).forEach(function (grp) {
       if (grp.id === 'vlastni') { html += ownGroup(); return; }
-      var ids = Object.keys(M.ITEMS).filter(function (k) {
+      var ids = keys.filter(function (k) {
         return M.ITEMS[k].group === grp.id && !M.ITEMS[k].icon;
       });
       if (!ids.length) return;
@@ -93,8 +111,10 @@
       toolCard('erase') + '</div></div>';
     host.innerHTML = html;
     syncIconsNote();
+  }
 
-    host.addEventListener('click', function (e) {
+  function bindTools() {
+    $('tools').addEventListener('click', function (e) {
       var del = e.target.closest('.tool-del');
       if (del) { deleteIcon(del.closest('.tool').dataset.tool); return; }
 
@@ -104,6 +124,7 @@
       if (opt) {
         var card = opt.closest('.tool');
         if (opt.dataset.opt === 'dir') state.dir = +opt.dataset.val;
+        if (opt.dataset.opt === 'num') state.tagNum = +opt.dataset.val;
         if (opt.dataset.opt === 'shape') state.shape = opt.dataset.val;
         if (opt.dataset.opt === 'color') state.color = opt.dataset.val;
         selectTool(card.dataset.tool);
@@ -129,7 +150,7 @@
     var own = type === 'own';
     var label = id === 'erase' ? 'Guma' : own ? UI.nameOf(toolIco(id)) : def.label;
     var hint = id === 'erase' ? 'Smaže obsah políčka.' : own ? label : def.hint;
-    var wide = def && def.custom ? ' tool-wide' : '';
+    var wide = def && (def.custom || def.num) ? ' tool-wide' : '';
     var on = state.tool === id;
     return '<div class="tool' + wide + (on ? ' on' : '') + '" data-tool="' + escAttr(id) + '">' +
       '<button type="button" class="tool-main" title="' + escAttr(hint) + '">' +
@@ -282,7 +303,10 @@
     syncHistory();
     $('title').value = state.board.title || '';
     syncSizeInputs();
-    rebuildOwnGroup();          // načtená deska mohla přinést vlastní ikony
+    state.tool = fallbackTool();
+    syncMode();                 // načtená deska může patřit druhému robotovi
+    buildTools();               // a mohla přinést i vlastní ikony
+    selectTool(state.tool);
     renderAll();
     changed(true);
   }
@@ -292,7 +316,8 @@
   function renderAll() {
     $('board-wrap').innerHTML = R.boardSVG(state.board, {
       solution: state.solution ? state.solution.path : null,
-      stops: state.solution ? state.solution.stops : null
+      stops: state.solution ? state.solution.stops : null,
+      camera: state.camera && isAim() ? AV.look(state.board) : null
     });
     updateBadge();
     renderTilemap();
@@ -318,23 +343,29 @@
   }
 
   function clearSolution() {
-    if (!state.solution) return;
+    if (!state.solution && !state.variants) return;
     state.solution = null;
+    state.variants = null;
     var l = document.querySelector('.solution-layer');
     if (l) l.remove();
     $('solution').hidden = true;
+    $('variants').hidden = true;
   }
 
   function changed(skipSolutionClear) {
     if (!skipSolutionClear) clearSolution();
     state.board.title = $('title').value;
+    if (isAim()) renderJobs();       // na desce mohl přibýt nebo zmizet tag
     ST.saveLocal(state.board);
   }
 
   /* ---------------- pokládání prvků ---------------- */
 
   function toolOpts() {
-    return { d: state.dir, s: state.shape, col: state.color, ico: toolIco(state.tool) };
+    return {
+      d: state.dir, n: state.tagNum, s: state.shape, col: state.color,
+      ico: toolIco(state.tool)
+    };
   }
 
   function sameAsTool(cur) {
@@ -342,6 +373,7 @@
     if (!cur || cur.t !== type) return false;
     var def = M.ITEMS[type];
     if (def.rot) return cur.d === state.dir;
+    if (def.num) return cur.n === state.tagNum;
     if (def.custom) return cur.s === state.shape && cur.col === state.color;
     if (def.icon) return cur.ico === toolIco(state.tool);
     return true;
@@ -359,6 +391,13 @@
     if (cur && cur.t === type) {
       if (def.rot && cur.d === state.dir) {          // druhý klik na šipku = otočí se
         state.dir = (cur.d + 1) & 3;
+        M.set(state.board, c, r, M.makeItem(type, toolOpts()));
+        refreshToolCard(state.tool);
+        refreshCell(c, r);
+        return;
+      }
+      if (def.num && cur.n === state.tagNum) {       // druhý klik na tag = další číslo
+        state.tagNum = (cur.n + 1) % (M.MAX_TAG + 1);
         M.set(state.board, c, r, M.makeItem(type, toolOpts()));
         refreshToolCard(state.tool);
         refreshCell(c, r);
@@ -547,6 +586,131 @@
     });
   }
 
+  /* ---------------- robot a režim ---------------- */
+
+  /** Přepne, co je vidět: úkoly, volby generátoru, náhled kamery, čísla kroků. */
+  function syncMode() {
+    var aim = isAim(), who = M.robotId(state.board);
+    document.querySelectorAll('#robot-switch button').forEach(function (b) {
+      b.classList.toggle('on', b.dataset.robot === who);
+    });
+    $('card-jobs').hidden = !aim;
+    $('camera-wrap').hidden = !aim;
+    $('gen-opts-123').hidden = aim;
+    $('gen-opts-aim').hidden = !aim;
+    $('step-gen').textContent = aim ? '4' : '3';
+    $('step-print').textContent = aim ? '5' : '4';
+    $('tile-note').textContent = 'Jedna dlaždice = ' + M.TILE + '×' + M.TILE + ' políčka' +
+      (aim ? ', jedno políčko ' + M.cellMm(state.board) + ' mm' : '') +
+      '. Kliknutím ji přidáš nebo ubereš.';
+    if (!aim) { state.camera = false; $('camera-on').checked = false; }
+    if (aim) renderJobs();
+  }
+
+  /** Nástroj, který v tomhle režimu určitě existuje. */
+  function fallbackTool() {
+    if (M.itemFits(toolType(state.tool), state.board)) return state.tool;
+    return M.findFirst(state.board, 'start') ? 'wall' : 'start';
+  }
+
+  function switchRobot(id) {
+    if (M.robotId(state.board) === id) return;
+    var lost = M.findAll(state.board, function (it) { return !M.itemFits(it.t, id); });
+    if (lost.length && !confirm('Na desce je ' + lost.length +
+      ' prvků, které druhý robot nezná. Přepnutím se z desky smažou. Pokračovat?')) {
+      syncMode();
+      return;
+    }
+    snapshot();
+    state.board.robot = id;
+    lost.forEach(function (u) { M.set(state.board, u.c, u.r, null); });
+    if (!M.isAim(state.board)) state.board.jobs = [];
+    state.tool = fallbackTool();
+    clearSolution();
+    syncMode();
+    buildTools();
+    selectTool(state.tool);
+    renderAll();
+    changed();
+  }
+
+  function bindRobot() {
+    $('robot-switch').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-robot]');
+      if (b) switchRobot(b.dataset.robot);
+    });
+
+    $('camera-on').addEventListener('change', function () {
+      state.camera = this.checked;
+      renderAll();
+    });
+  }
+
+  /* ---------------- úkoly pro AIM ---------------- */
+
+  /* Míček se kope do branky, sudy se vozí na zastávku – druh úkolu
+   * tedy plyne přímo z nákladu a nemusí se nikde vybírat. */
+  function jobKind(cargo) { return cargo === 'ball' ? 'kick' : 'deliver'; }
+
+  function renderJobs() {
+    var list = M.jobs(state.board), html = '';
+    list.forEach(function (j, i) {
+      var ok = M.jobOk(state.board, j);
+      html += '<li class="job' + (ok ? '' : ' job-bad') + '">' +
+        '<span class="job-no">' + (i + 1) + '</span>' +
+        '<span class="job-text">' + escAttr(M.jobText(j)) +
+        (ok ? '' : '<small>chybí na desce</small>') + '</span>' +
+        '<button type="button" class="job-del" data-job="' + i +
+        '" title="Smazat úkol">&times;</button></li>';
+    });
+    $('joblist').innerHTML = html;
+
+    var tags = M.tagNumbers(state.board), sel = $('job-tag'), keep = sel.value;
+    sel.innerHTML = tags.map(function (n) {
+      return '<option value="' + n + '">zastávka ' + n + '</option>';
+    }).join('');
+    if (tags.indexOf(+keep) >= 0) sel.value = keep;
+    sel.disabled = !tags.length;
+    $('btn-job-add').disabled = !tags.length || list.length >= M.MAX_JOBS;
+
+    $('job-note').textContent = !tags.length
+      ? 'Nejdřív polož na desku AprilTag, pak z něj udělej zastávku.'
+      : list.length >= M.MAX_JOBS
+        ? 'Víc než ' + M.MAX_JOBS + ' úkolů na jednu desku nedávej.'
+        : 'Náklad robot sebere průjezdem, u zastávky ho položí.';
+  }
+
+  function bindJobs() {
+    $('job-cargo').innerHTML = M.CARGO.map(function (c) {
+      return '<option value="' + c.id + '">' + c.label + '</option>';
+    }).join('');
+
+    $('btn-job-add').addEventListener('click', function () {
+      var cargo = $('job-cargo').value, tag = +$('job-tag').value;
+      if ($('job-tag').value === '') return;
+      snapshot();
+      if (!M.addJob(state.board, jobKind(cargo), cargo, tag)) {
+        state.undo.pop();
+        syncHistory();
+        $('job-note').textContent = 'Tenhle úkol už v seznamu je.';
+        return;
+      }
+      clearSolution();
+      renderJobs();
+      changed(true);
+    });
+
+    $('joblist').addEventListener('click', function (e) {
+      var del = e.target.closest('.job-del');
+      if (!del) return;
+      snapshot();
+      M.removeJob(state.board, +del.dataset.job);
+      clearSolution();
+      renderJobs();
+      changed(true);
+    });
+  }
+
   /* ---------------- generátor ---------------- */
 
   function bindGenerator() {
@@ -565,14 +729,22 @@
       btn.textContent = 'Generuji…';
       $('gen-note').textContent = '';
       setTimeout(function () {
-        var res = G.generate({
-          tiles: state.board.tiles,
-          difficulty: state.difficulty,
-          stars: $('gen-stars').checked,
-          oneway: $('gen-oneway').checked,
-          sound: $('gen-sound').checked,
-          light: $('gen-light').checked
-        });
+        var aim = isAim();
+        var res = aim
+          ? GA.generate({
+            tiles: state.board.tiles,
+            difficulty: state.difficulty,
+            walls: $('gen-walls').checked,
+            ball: $('gen-ball').checked
+          })
+          : G.generate({
+            tiles: state.board.tiles,
+            difficulty: state.difficulty,
+            stars: $('gen-stars').checked,
+            oneway: $('gen-oneway').checked,
+            sound: $('gen-sound').checked,
+            light: $('gen-light').checked
+          });
         btn.disabled = false;
         btn.textContent = 'Vygenerovat bludiště';
         if (!res) {
@@ -584,40 +756,101 @@
         state.board = res.board;
         state.board.title = title;
         clearSolution();
+        syncMode();
         renderAll();
         changed();
         var i = res.info;
-        $('gen-note').textContent = 'Hotovo: nejkratší řešení má ' + i.cost + ' příkazů (' +
-          i.steps + '× vpřed, ' + i.turns + '× otočení), překážek: ' + i.walls + '.';
+        $('gen-note').textContent = aim
+          ? 'Hotovo: tlačítka ' + i.counts[0] + ' příkazů, bloky bez otáčení ' + i.counts[1] +
+            ', se šikmou jízdou ' + i.counts[2] + '. Úkolů: ' + i.jobs + ', překážek: ' + i.walls + '.'
+          : 'Hotovo: nejkratší řešení má ' + i.cost + ' příkazů (' +
+            i.steps + '× vpřed, ' + i.turns + '× otočení), překážek: ' + i.walls + '.';
       }, 30);
     });
   }
 
   /* ---------------- řešení ---------------- */
 
+  function solveFailed(title, reason) {
+    state.solution = null;
+    state.variants = null;
+    var l = document.querySelector('.solution-layer');
+    if (l) l.remove();
+    $('variants').hidden = true;
+    var box = $('solution');
+    box.hidden = false;
+    box.className = 'solution bad';
+    box.innerHTML = '<strong>' + title + '</strong><p>' + escAttr(reason) + '</p>';
+  }
+
+  function check123() {
+    var sol = S.solve(state.board);
+    if (!sol.ok) { solveFailed('Bludiště zatím nejde vyřešit.', sol.reason); return; }
+    state.solution = sol;
+    var box = $('solution');
+    box.hidden = false;
+    box.className = 'solution good';
+    var cmds = S.commandsToText(sol.commands);
+    box.innerHTML = '<strong>Bludiště je řešitelné.</strong>' +
+      '<p>Nejkratší program má <b>' + sol.cost + ' příkazů</b> – ' +
+      sol.steps + '× jeď vpřed a ' + sol.turns + '× otoč se.</p>' +
+      '<details><summary>Ukázat celý program</summary><ol class="cmds">' +
+      cmds.map(function (t) { return '<li>' + t + '</li>'; }).join('') +
+      '</ol></details>';
+    renderAll();
+  }
+
+  /** Tři varianty vedle sebe: na číslech je vidět, co udělá jízda bez otáčení. */
+  function renderVariants() {
+    var max = 1;
+    state.variants.forEach(function (v) { if (v.count > max) max = v.count; });
+    $('variants').hidden = false;
+    $('variants').innerHTML = state.variants.map(function (v) {
+      return '<button type="button" class="vbar' + (v.id === state.variant ? ' on' : '') +
+        '" data-variant="' + v.id + '" title="' + escAttr(v.hint) + '">' +
+        '<span class="vbar-head"><b>' + v.count + '</b> ' + escAttr(v.label) + '</span>' +
+        '<span class="vbar-track"><span class="vbar-fill vbar-' + v.id +
+        '" style="width:' + Math.round(100 * v.count / max) + '%"></span></span></button>';
+    }).join('');
+  }
+
+  function showVariant() {
+    var v = null;
+    state.variants.forEach(function (x) { if (x.id === state.variant) v = x; });
+    if (!v) return;
+    state.solution = { path: v.path, stops: v.stops };
+    var box = $('solution');
+    box.hidden = false;
+    box.className = 'solution good';
+    box.innerHTML = '<strong>' + escAttr(v.label) + ': ' + v.count + ' příkazů</strong>' +
+      '<p>Sebrání nákladu se nepočítá, položení a kop ano.</p>' +
+      '<ol class="cmds' + (v.id === 'buttons' ? '' : ' mono') + '">' + v.commands.map(function (c) {
+        return '<li' + (c.n ? '' : ' class="cmd-free"') + '>' + escAttr(c.text) + '</li>';
+      }).join('') + '</ol>';
+    renderAll();
+  }
+
+  function checkAim() {
+    var res = AS.solve(state.board);
+    if (!res.ok) { solveFailed('Deska zatím nejde vyřešit.', res.reason); return; }
+    state.variants = res.variants;
+    var known = state.variants.some(function (v) { return v.id === state.variant; });
+    if (!known) state.variant = 'buttons';
+    renderVariants();
+    showVariant();
+  }
+
   function bindSolver() {
     $('btn-check').addEventListener('click', function () {
-      var sol = S.solve(state.board);
-      var box = $('solution');
-      box.hidden = false;
-      if (!sol.ok) {
-        state.solution = null;
-        var l = document.querySelector('.solution-layer');
-        if (l) l.remove();
-        box.className = 'solution bad';
-        box.innerHTML = '<strong>Bludiště zatím nejde vyřešit.</strong><p>' + sol.reason + '</p>';
-        return;
-      }
-      state.solution = sol;
-      box.className = 'solution good';
-      var cmds = S.commandsToText(sol.commands);
-      box.innerHTML = '<strong>Bludiště je řešitelné.</strong>' +
-        '<p>Nejkratší program má <b>' + sol.cost + ' příkazů</b> – ' +
-        sol.steps + '× jeď vpřed a ' + sol.turns + '× otoč se.</p>' +
-        '<details><summary>Ukázat celý program</summary><ol class="cmds">' +
-        cmds.map(function (t) { return '<li>' + t + '</li>'; }).join('') +
-        '</ol></details>';
-      renderAll();
+      if (isAim()) checkAim(); else check123();
+    });
+
+    $('variants').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-variant]');
+      if (!b || !state.variants) return;
+      state.variant = b.dataset.variant;
+      renderVariants();
+      showVariant();
     });
   }
 
@@ -716,16 +949,27 @@
     });
   }
 
-  function bindHelp() {
-    var host = $('help-legend'), html = '';
-    Object.keys(M.ITEMS).forEach(function (id) {
+  /** Vysvětlivky v nápovědě ukazují prvky toho robota, kterého má deska. */
+  function buildHelpLegend() {
+    var html = '';
+    M.itemsFor(state.board).forEach(function (id) {
       var def = M.ITEMS[id];
       if (def.icon) return;                 // vlastní ikony jsou u každého jiné
-      html += '<div class="hl-item">' + I.standalone(id, id === 'oneway' ? 1 : 2, 50) +
+      var ico = def.num
+        ? I.standalone({ t: id, n: 1 }, null, 50)
+        : I.standalone(id, id === 'oneway' ? 1 : 2, 50);
+      html += '<div class="hl-item">' + ico +
         '<div><strong>' + def.label + '</strong><span>' + def.hint + '</span></div></div>';
     });
-    host.innerHTML = html;
-    $('btn-help').addEventListener('click', function () { $('dlg-help').showModal(); });
+    $('help-legend').innerHTML = html;
+  }
+
+  function bindHelp() {
+    $('btn-help').addEventListener('click', function () {
+      buildHelpLegend();
+      document.querySelectorAll('.help-aim').forEach(function (el) { el.hidden = !isAim(); });
+      $('dlg-help').showModal();
+    });
     document.querySelectorAll('[data-close]').forEach(function (b) {
       b.addEventListener('click', function () { b.closest('dialog').close(); });
     });
@@ -743,14 +987,18 @@
     state.tool = M.findFirst(b, 'start') ? 'wall' : 'start';
 
     buildTools();
+    bindTools();
     bindBoard();
     bindShape();
+    bindRobot();
+    bindJobs();
     bindGenerator();
     bindSolver();
     bindPrint();
     bindSave();
     bindIcons();
     bindHelp();
+    syncMode();
 
     $('title').value = b.title || '';
     $('title').addEventListener('input', function () { changed(true); });

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>VEX Bludiště</title>
-<meta name="description" content="Jednoduchý nástroj pro učitele: vytvoř bludiště pro roboty VEX 123 a VEX GO, nech si ho vygenerovat a vytiskni.">
+<meta name="description" content="Jednoduchý nástroj pro učitele: vytvoř bludiště pro roboty VEX 123, VEX GO a VEX AIM, nech si ho vygenerovat a vytiskni.">
 <link rel="icon" href="favicon.svg">
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/print.css">
@@ -16,8 +16,12 @@
     <span class="brand-logo" aria-hidden="true"></span>
     <span class="brand-text">
       <strong>VEX&nbsp;Bludiště</strong>
-      <small>tvorba úloh pro roboty VEX&nbsp;123 a VEX&nbsp;GO</small>
+      <small>tvorba úloh pro roboty VEX&nbsp;123, VEX&nbsp;GO a VEX&nbsp;AIM</small>
     </span>
+  </div>
+  <div class="seg seg-2 seg-top" id="robot-switch" role="group" aria-label="Robot">
+    <button type="button" data-robot="v123">VEX&nbsp;123 / GO</button>
+    <button type="button" data-robot="aim">VEX&nbsp;AIM</button>
   </div>
   <button type="button" class="btn btn-help" id="btn-help">?&nbsp; Nápověda</button>
 </header>
@@ -39,6 +43,9 @@
     <div class="stage-head">
       <input type="text" id="title" class="title-input" maxlength="60" placeholder="Název bludiště (nepovinné)">
       <div class="stage-actions">
+        <label class="chk chk-inline" id="camera-wrap" hidden>
+          <input type="checkbox" id="camera-on"> Co vidí robot
+        </label>
         <button type="button" class="btn" id="btn-undo">&#8630; Zpět</button>
         <button type="button" class="btn" id="btn-redo">&#8631; Vpřed</button>
         <button type="button" class="btn btn-danger" id="btn-clear">Vymazat vše</button>
@@ -75,7 +82,7 @@
       <p class="or-line"><span>nebo si tvar naklikej</span></p>
 
       <div class="tilemap" id="tilemap"></div>
-      <p class="card-note">Jedna dlaždice = 3&times;3 políčka. Kliknutím ji přidáš nebo ubereš.</p>
+      <p class="card-note" id="tile-note">Jedna dlaždice = 3&times;3 políčka. Kliknutím ji přidáš nebo ubereš.</p>
 
       <div class="presets" id="presets">
         <button type="button" data-preset="L">Písmeno L</button>
@@ -85,18 +92,33 @@
       </div>
     </section>
 
+    <section class="card" id="card-jobs" hidden>
+      <h2 class="card-title"><span class="step">3</span> Úkoly pro robota</h2>
+      <ul class="joblist" id="joblist"></ul>
+      <div class="job-add">
+        <select id="job-cargo" aria-label="Náklad"></select>
+        <select id="job-tag" aria-label="Zastávka"></select>
+        <button type="button" class="btn" id="btn-job-add">Přidat</button>
+      </div>
+      <p class="card-note" id="job-note"></p>
+    </section>
+
     <section class="card card-accent">
-      <h2 class="card-title"><span class="step">3</span> Vygeneruj bludiště</h2>
+      <h2 class="card-title"><span class="step" id="step-gen">3</span> Vygeneruj bludiště</h2>
       <div class="seg" id="difficulty" role="group" aria-label="Obtížnost">
         <button type="button" data-diff="easy">Lehké</button>
         <button type="button" data-diff="medium" class="on">Střední</button>
         <button type="button" data-diff="hard">Těžké</button>
       </div>
-      <div class="checks">
+      <div class="checks" id="gen-opts-123">
         <label><input type="checkbox" id="gen-stars" checked> Hvězdičky k sebrání</label>
         <label><input type="checkbox" id="gen-oneway" checked> Jednosměrky</label>
         <label><input type="checkbox" id="gen-sound"> Místo pro zvuk</label>
         <label><input type="checkbox" id="gen-light"> Místo pro rozsvícení</label>
+      </div>
+      <div class="checks" id="gen-opts-aim" hidden>
+        <label><input type="checkbox" id="gen-walls" checked> Překážky na poli</label>
+        <label><input type="checkbox" id="gen-ball" checked> Míček do branky</label>
       </div>
       <button type="button" class="btn btn-primary full big" id="btn-generate">Vygenerovat bludiště</button>
       <p class="card-note" id="gen-note"></p>
@@ -105,11 +127,12 @@
     <section class="card">
       <h2 class="card-title">Řešení</h2>
       <button type="button" class="btn full" id="btn-check">Zkontrolovat a ukázat cestu</button>
+      <div class="variants" id="variants" hidden></div>
       <div class="solution" id="solution" hidden></div>
     </section>
 
     <section class="card">
-      <h2 class="card-title"><span class="step">4</span> Tisk a uložení</h2>
+      <h2 class="card-title"><span class="step" id="step-print">4</span> Tisk a uložení</h2>
       <button type="button" class="btn btn-primary full" id="btn-print">Vytisknout</button>
       <div class="btnrow">
         <button type="button" class="btn" id="btn-png">Obrázek PNG</button>
@@ -201,6 +224,8 @@
 
     <h3>Jak to funguje</h3>
     <ol class="help-list">
+      <li>Nahoře si vyber <strong>robota</strong>. VEX&nbsp;123 a VEX&nbsp;GO jezdí po políčkách
+          a otáčí se, VEX&nbsp;AIM umí navíc jízdu bokem a šikmo a má kameru.</li>
       <li>Vlevo <strong>klikni na prvek</strong>, který chceš použít (třeba Zákaz vjezdu).</li>
       <li>Pak <strong>klikni na políčko</strong> na desce. Můžeš i táhnout myší a kreslit víc políček najednou.</li>
       <li>Chybu smažeš <strong>Gumou</strong>, nebo kliknutím pravým tlačítkem na políčko.</li>
@@ -215,6 +240,43 @@
 
     <h3>Co který prvek znamená</h3>
     <div class="help-legend" id="help-legend"></div>
+
+    <section class="help-aim" hidden>
+      <h3>Režim VEX AIM</h3>
+      <p>AIM má tři všesměrová kola. Jede vpřed, vzad, bokem i šikmo, aniž by se otáčel,
+         a kamerou pozná, <em>co</em> před sebou má. Pole se počítá s políčkem
+         <strong>100&nbsp;mm</strong> a dlaždicí 3&times;3 políčka.</p>
+      <ul class="help-list">
+        <li><strong>Náklad</strong> (oranžový sud, modrý sud, míček) robot sebere tím,
+            že na políčko vjede. Sebrání se nepočítá jako příkaz.</li>
+        <li><strong>AprilTag</strong> je zastávka nebo branka. Políčko s tagem je neprůjezdné,
+            robot zastaví na sousedním políčku a náklad položí nebo kopne.</li>
+        <li>V kartě <strong>Úkoly pro robota</strong> si poskládáš zadání typu
+            „Doruč oranžový sud na zastávku 1“. U míčku se úkol změní na kop do branky.</li>
+      </ul>
+
+      <h3>Tři varianty programu</h3>
+      <p>Tlačítko <strong>Zkontrolovat a ukázat cestu</strong> spočítá tutéž desku třikrát.
+         Kliknutím na sloupec si vybereš, který program se vypíše.</p>
+      <ul class="help-list">
+        <li><strong>Tlačítka</strong>, Button Coding přímo na robotu: vpřed o políčko,
+            otočka o 90°, akce. Každý stisk je jeden příkaz.</li>
+        <li><strong>Bloky bez otáčení</strong>, robot se neotáčí a jede i bokem.
+            Souvislá jízda jedním směrem je jeden blok <code>move</code>, i kdyby vedla přes půl pole.</li>
+        <li><strong>Bloky se šikmou jízdou</strong>: navíc úhlopříčky po 45°
+            jako <code>move at angle</code>. Úhlopříčka je 141&nbsp;mm na políčko.</li>
+      </ul>
+      <p>Ve všech třech variantách se počítá jízda a doručení stejně, takže rozdíl v číslech
+         je přesně to, co ušetří holonomní podvozek.</p>
+
+      <h3>Co vidí robot</h3>
+      <p>Zaškrtnutí nad deskou vykreslí výseč zorného pole ze startu (asi 73°) a u každého
+         objektu napíše přibližný úhel. Zelená znamená vidím, červená čárkovaná mimo výseč
+         nebo zakryté zdí či tagem.</p>
+      <p><strong>Je to jen model geometrie, ne skutečná kamera.</strong> Ta se chová jinak
+         podle světla, vzdálenosti a úhlu. Náhled slouží k plánování maker
+         <code>turn until found</code>, ne jako důkaz, že robot objekt uvidí.</p>
+    </section>
 
     <h3>Jak přemýšlí automatický generátor</h3>
     <p>Generátor nesází prvky náhodně. Vždy dodrží tato pravidla:</p>
@@ -259,7 +321,10 @@
 <script src="js/icons.js"></script>
 <script src="js/render.js"></script>
 <script src="js/solver.js"></script>
+<script src="js/aimsolver.js"></script>
+<script src="js/aimvision.js"></script>
 <script src="js/generator.js"></script>
+<script src="js/aimgenerator.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/printing.js"></script>
 <script src="js/app.js"></script>

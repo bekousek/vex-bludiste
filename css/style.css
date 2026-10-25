@@ -18,6 +18,9 @@
 
 * { box-sizing: border-box; }
 
+/* Schované je schované, i když má prvek vlastní display (karty, pruhy, checkboxy). */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   padding: 0;
@@ -31,6 +34,7 @@ html, body {
 .topbar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 14px;
   padding: 12px 20px;
   background: var(--purple);
@@ -438,6 +442,135 @@ html, body {
 .solution summary { cursor: pointer; font-weight: 600; }
 .solution .cmds { margin: 8px 0 0; padding-left: 22px; max-height: 240px; overflow: auto; }
 .solution .cmds li { margin-bottom: 2px; }
+
+/* ---------- přepínač robota ---------- */
+
+.seg-2 { grid-template-columns: 1fr 1fr; }
+
+.seg-top {
+  flex: none;
+  gap: 4px;
+  padding: 3px;
+  background: rgba(255, 255, 255, .15);
+  border-radius: 11px;
+}
+.seg-top button {
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 13px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+.seg-top button:hover { background: rgba(255, 255, 255, .16); }
+.seg-top button.on { background: #fff; color: var(--purple-dark); }
+
+.chk-inline { margin-top: 0; font-size: 13px; }
+
+/* číslo AprilTagu přímo v tlačítku prvku */
+.tool-opts.nums { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.tool-opts.nums .opt { height: 28px; font-weight: 700; }
+
+/* ---------- úkoly pro AIM ---------- */
+
+.joblist {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.joblist:empty { margin: 0; }
+
+.job {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 1.5px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  font-size: 13px;
+}
+.job-no {
+  width: 20px; height: 20px; flex: none;
+  border-radius: 50%;
+  background: var(--purple);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+.job-text { flex: 1; min-width: 0; }
+.job-text small { display: block; color: var(--red); font-size: 11.5px; }
+.job-bad { border-color: #f0c7c7; background: #fdf4f4; }
+
+.job-del {
+  width: 22px; height: 22px; flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #f4f6f8;
+  color: #a33a3a;
+  font-size: 17px;
+  line-height: 22px;
+  cursor: pointer;
+}
+.job-del:hover { background: var(--red); color: #fff; }
+
+.job-add { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; }
+.job-add select {
+  font: inherit;
+  font-size: 13px;
+  min-width: 0;
+  padding: 7px 6px;
+  border: 2px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ink);
+}
+.job-add select:disabled { opacity: .5; }
+.job-add .btn { padding: 7px 10px; }
+
+/* ---------- porovnání tří variant ---------- */
+
+.variants { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+
+.vbar {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  padding: 8px 9px;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+.vbar:hover { border-color: #b7c2cd; }
+.vbar.on { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(113, 58, 148, .14); }
+
+.vbar-head { display: block; font-size: 13px; margin-bottom: 5px; }
+.vbar-head b { font-size: 17px; margin-right: 5px; }
+
+.vbar-track {
+  display: block;
+  height: 10px;
+  border-radius: 999px;
+  background: #eef1f5;
+  overflow: hidden;
+}
+.vbar-fill { display: block; height: 100%; border-radius: 999px; }
+.vbar-buttons { background: #2a6fd6; }
+.vbar-blocks { background: #ef7d16; }
+.vbar-diag { background: #2fa84f; }
+
+.cmd-free { color: var(--muted); }
+.cmds.mono li { font-family: Consolas, "SFMono-Regular", Menlo, monospace; font-size: 12.5px; }
 
 /* ---------- dialogy ---------- */
 

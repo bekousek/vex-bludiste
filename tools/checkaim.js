@@ -79,5 +79,28 @@ if (fs.existsSync(boardsDir)) {
     });
 }
 
+/* ---- generátor: každá vygenerovaná deska musí jít vyřešit ---- */
+if (VEX.aimgenerator) {
+  console.log('\n== generátor AIM ==');
+  ['easy', 'medium', 'hard'].forEach(function (diff) {
+    [[2, 2], [3, 2]].forEach(function (size) {
+      const tiles = {};
+      for (let y = 0; y < size[1]; y++) for (let x = 0; x < size[0]; x++) tiles[x + ',' + y] = 1;
+      let ok = 0, best = null;
+      for (let i = 0; i < 5; i++) {
+        const res = VEX.aimgenerator.generate({ tiles: tiles, difficulty: diff, walls: true, ball: true });
+        if (!res) continue;
+        const check = VEX.aimsolver.solve(res.board);
+        if (!check.ok) { fail(diff + ' ' + size.join('x') + ': deska nejde vyřešit'); continue; }
+        ok++;
+        best = res.info.counts;
+      }
+      console.log('   ' + diff.padEnd(7) + size.join('x') + ' dlaždic: ' +
+        ok + ' z 5 desek' + (best ? ', naposledy ' + best.join(' / ') + ' příkazů' : ''));
+      if (!ok) fail(diff + ' ' + size.join('x') + ': generátor nic nevymyslel');
+    });
+  });
+}
+
 console.log(failed ? '\n' + failed + '× chyba' : '\nVšechno sedí.');
 process.exit(failed ? 1 : 0);

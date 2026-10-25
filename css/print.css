@@ -92,5 +92,39 @@
 
   .p-solution .p-legend { width: 52mm; }
 
+  /* ---- režim AIM: úkoly, porovnání a tři programy vedle sebe ---- */
+
+  .p-legend h2 + h2, .p-jobs + h2, .legend + h2 { margin-top: 6mm; }
+
+  .p-jobs {
+    margin: 0;
+    padding-left: 5mm;
+    font: 10pt/1.35 "Segoe UI", system-ui, Arial, sans-serif;
+  }
+  .p-jobs li { margin-bottom: 1.5mm; }
+
+  .p-compare { display: flex; flex-direction: column; gap: 4mm; }
+  .p-cmp { font: 9.5pt/1.25 "Segoe UI", system-ui, Arial, sans-serif; }
+  .p-cmp b { font-size: 12pt; }
+  .p-cmp-track {
+    display: block;
+    height: 2.5mm;
+    margin-top: 1mm;
+    background: #e8e8e8;
+    border-radius: 2mm;
+  }
+  .p-cmp-fill { display: block; height: 100%; background: #713a94; border-radius: 2mm; }
+
+  .p-progs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7mm; }
+  .p-prog h3 {
+    margin: 0 0 3mm;
+    font: 700 10.5pt/1.2 "Segoe UI", system-ui, Arial, sans-serif;
+    color: #713a94;
+    border-bottom: 1pt solid #ddd;
+    padding-bottom: 1.5mm;
+  }
+  .p-prog .p-cmds { font-size: 9pt; }
+  .p-free { color: #777; }
+
   .board .hits, .board .hit { display: none !important; }
 }

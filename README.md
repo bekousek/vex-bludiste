@@ -1,7 +1,8 @@
 # VEX Bludiště
 
-Webová aplikace pro tvorbu bludišť na dlaždicových polích pro roboty **VEX 123** a **VEX GO**.
-Učitel si bludiště naklikne, nebo si ho nechá vygenerovat, zkontroluje řešení a vytiskne.
+Webová aplikace pro tvorbu bludišť na dlaždicových polích pro roboty **VEX 123**, **VEX GO**
+a **VEX AIM**. Učitel si bludiště naklikne, nebo si ho nechá vygenerovat, zkontroluje řešení
+a vytiskne.
 
 **Aplikace:** https://bekousek.github.io/vex-bludiste/
 
@@ -9,6 +10,9 @@ Učitel si bludiště naklikne, nebo si ho nechá vygenerovat, zkontroluje řeš
 
 ## Co aplikace umí
 
+- **Dva roboti na jedno kliknutí** – přepínač v hlavičce mění paletu prvků, řešitel i generátor.
+  Režim VEX 123 a GO zůstává přesně jako dřív, režim VEX AIM přidává náklad, zastávky
+  a porovnání tří způsobů programování (viz níže).
 - **Stavba pole z dlaždic** – základ je dlaždice 3×3 políčka. Pole nemusí být obdélník:
   dlaždice se naklikají do jakéhokoli tvaru (písmeno L, okruh s dírou uprostřed, kříž, cikcak),
   až do rozměru 8×8 dlaždic (24×24 políček). Hotové tvary jsou na jedno kliknutí.
@@ -39,6 +43,48 @@ Učitel si bludiště naklikne, nebo si ho nechá vygenerovat, zkontroluje řeš
 
 U startu a jednosměrky se natočení vybírá křížovým ovladačem přímo v jejich tlačítku,
 u vlastního tvaru se tam stejně vybírá tvar a barva.
+
+## Režim VEX AIM
+
+AIM má tři všesměrová kola, takže jede vpřed, vzad, bokem i šikmo, aniž by se otáčel,
+a kamerou pozná, co před sebou má. Právě to je na papíře nejhůř vidět, a proto má AIM
+vlastní režim.
+
+**Rozměry pole.** Jedno políčko je **100 mm** (krok Button Coding), dlaždice má 3×3 políčka,
+tedy 300 mm. Hodnoty jsou na jednom místě v registru `ROBOTS` v `js/model.js`, takže
+se dají kdykoli opravit podle skutečného pole.
+
+**Prvky navíc.** Oranžový sud, modrý sud a míček jsou náklad: robot ho sebere tím, že na
+políčko vjede. AprilTag (ID 0 až 4, číslo se vybírá v tlačítku prvku) je zastávka nebo branka.
+Políčko s tagem je neprůjezdné, robot zastaví na sousedním políčku a náklad položí nebo kopne.
+
+**Úkoly.** K desce patří seznam úkolů typu *Doruč oranžový sud na zastávku 1*. U míčku se
+úkol změní na kop do branky. Pořadí úkolů i to, který ze tří sudů robot použije, si řešitel
+vybere sám. Úkoly se tisknou do zadání.
+
+**Tři varianty programu.** Tatáž deska se spočítá třikrát a výsledky se ukážou vedle sebe:
+
+| Varianta | Co se počítá |
+|---|---|
+| Tlačítka | Button Coding na robotu: vpřed o políčko, otočka o 90°, akce. Každý stisk je příkaz. |
+| Bloky bez otáčení | Robot se neotáčí a jede i bokem. Souvislá jízda jedním směrem je jeden blok `move`. |
+| Bloky se šikmou jízdou | Navíc úhlopříčky po 45° jako `move at angle`. Úhlopříčka měří 141 mm na políčko. |
+
+Sebrání nákladu se nepočítá ve všech třech variantách stejně (robot ho sebere průjezdem),
+položení a kop se počítá. Rozdíl v číslech je tedy přesně to, co ušetří holonomní podvozek.
+Program se vypisuje názvy bloků VEXcode AIM, u tlačítek šipkami jako na metodických kartách.
+
+**Náhled „co vidí robot“.** Zaškrtnutí nad deskou vykreslí výseč zorného pole ze startu
+(asi 73° podle VEX STEM Labs) a u každého objektu napíše přibližný úhel. Zelená znamená
+vidím, červená čárkovaná mimo výseč nebo zakryté zdí či tagem. **Je to model geometrie,
+ne simulace kamery** – skutečná kamera se chová jinak podle světla, vzdálenosti a úhlu.
+Náhled slouží k plánování maker `turn until found` bez robota.
+
+**Generátor pro AIM.** Lehké je jedno doručení bez zdí, střední dvě doručení a pár zdí,
+těžké tři úkoly včetně míčku do branky. Zastávky stojí u okraje desky, náklad nikdy nezůstane
+obklopený zdmi, start je na okraji a natočí se tak, aby kamera opravdu něco viděla.
+Každá deska se před vydáním vyřeší ve všech třech variantách a zahodí se, když řešení
+neexistuje nebo když je rozdíl mezi tlačítky a bloky moc malý na to, aby byl vidět.
 
 ## Vlastní ikony a kde se ukládají
 
@@ -99,26 +145,44 @@ Funguje i po stažení a otevření `index.html` z disku, tedy i bez internetu.
 index.html          rozvržení a dialogy
 css/style.css       vzhled aplikace
 css/print.css       tiskový výstup (A4, automatická orientace)
-js/model.js         datový model desky (dlaždice + políčka) a registr prvků
+js/model.js         datový model desky (dlaždice + políčka), registr prvků a robotů
 js/icons.js         kresba ikon do čtverce 100×100
 js/usericons.js     knihovna vlastních nahraných ikon (localStorage, záloha do souboru)
-js/render.js        vykreslení desky do SVG
-js/solver.js        řešitel – nejkratší program přes všechny úkoly do cíle
-js/generator.js     automatický generátor bludišť
+js/render.js        vykreslení desky do SVG včetně výseče kamery
+js/solver.js        řešitel 123 a GO – nejkratší program přes všechny úkoly do cíle
+js/aimsolver.js     řešitel AIM – tlačítka, bloky bez otáčení, bloky se šikmou jízdou
+js/aimvision.js     model zorného pole kamery (co robot ze startu vidí)
+js/generator.js     automatický generátor bludišť pro 123 a GO
+js/aimgenerator.js  automatický generátor desek pro AIM
 js/storage.js       ukládání do prohlížeče, souboru a odkazu
 js/printing.js      sestavení tiskových stránek
 js/app.js           propojení ovládání s modelem
 tools/serve.js      malý server jen pro místní zkoušení
+tools/checkaim.js   kontrola řešitelů v Node, bez prohlížeče
+tools/testboards/   desky, na kterých se kontrola spouští
 ```
+
+Uložená deska i odkaz nesou navíc `robot` a `jobs`. Starší soubory a odkazy tyhle údaje
+nemají a načtou se jako VEX 123 a GO, tedy přesně jako dřív.
 
 ### Přidání nového prvku
 
 1. Zapsat prvek do tabulky `ITEMS` v `js/model.js`
-   (`group`, `label`, `hint`, `legend`; volitelně `rot` pro natočení, `custom` pro volbu
-   tvaru a barvy, `unique`, `blocks`, `task`).
+   (`group`, `label`, `hint`, `legend`; volitelně `rot` pro natočení, `num` pro číslo 0 až 4,
+   `custom` pro volbu tvaru a barvy, `unique`, `blocks`, `task`, `cargo`
+   a `robots` pro seznam robotů, kterým prvek patří).
 2. Doplnit stejný klíč do tabulky `ICONS` v `js/icons.js` – funkce vrací SVG do čtverce 100×100.
 
 Paleta, volby v tlačítku, legenda, nápověda i ukládání se doplní samy.
+
+### Kontrola bez prohlížeče
+
+```bash
+node tools/checkaim.js
+```
+
+Načte moduly do malého `window`, vypíše řešení testovacích desek a ohlídá, že šikmá varianta
+není delší než jízda bokem a že generátor na každou obtížnost něco vymyslí.
 
 ### Místní spuštění
 

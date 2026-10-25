@@ -57,6 +57,65 @@
     return s + '</ol>';
   }
 
+  /* ---------- režim AIM ---------- */
+
+  function jobsHTML(b) {
+    var list = M.jobs(b);
+    if (!list.length) return '';
+    var s = '<h2>Úkoly</h2><ol class="p-jobs">';
+    list.forEach(function (j) { s += '<li>' + esc(M.jobText(j)) + '</li>'; });
+    return s + '</ol>';
+  }
+
+  function compareHTML(variants) {
+    var max = 1;
+    variants.forEach(function (v) { if (v.count > max) max = v.count; });
+    var s = '<h2>Porovnání</h2><div class="p-compare">';
+    variants.forEach(function (v) {
+      s += '<div class="p-cmp"><span><b>' + v.count + '</b> ' + esc(v.label) + '</span>' +
+        '<span class="p-cmp-track"><span class="p-cmp-fill" style="width:' +
+        Math.round(100 * v.count / max) + '%"></span></span></div>';
+    });
+    return s + '</div>';
+  }
+
+  function programsHTML(variants) {
+    var s = '<div class="p-progs">';
+    variants.forEach(function (v) {
+      s += '<div class="p-prog"><h3>' + esc(v.label) + ': ' + v.count + ' příkazů</h3>' +
+        '<ol class="p-cmds">';
+      v.commands.forEach(function (c) {
+        s += '<li' + (c.n ? '' : ' class="p-free"') + '>' + esc(c.text) + '</li>';
+      });
+      s += '</ol></div>';
+    });
+    return s + '</div>';
+  }
+
+  function aimSolutionPages(b, land, eco) {
+    var res = VEX.aimsolver.solve(b);
+    if (!res.ok) return '';
+    var counts = res.variants.map(function (v) { return v.count; });
+    var first = res.variants[0];
+    var svg = fitted(R.boardSVG(b, {
+      eco: eco, noHits: true, solution: first.path, stops: first.stops
+    }), land, true);
+
+    return page(
+      head('Řešení: ' + (b.title || 'Bludiště'),
+        'Tlačítka ' + counts[0] + ' příkazů, bloky bez otáčení ' + counts[1] +
+        ', se šikmou jízdou ' + counts[2] + '. Na desce je cesta podle tlačítek.') +
+      '<div class="p-body"><div class="p-board">' + svg + '</div>' +
+      '<aside class="p-legend">' + compareHTML(res.variants) + '</aside></div>',
+      'p-solution'
+    ) + page(
+      head('Programy: ' + (b.title || 'Bludiště'),
+        'Sebrání nákladu se nepočítá, položení a kop ano.') +
+      programsHTML(res.variants),
+      'p-solution'
+    );
+  }
+
   /**
    * Sestaví obsah #print-root.
    * opts: { mode:'board'|'blank', board, eco, solution(bool), blank:{tx,ty,copies,legend} }
@@ -67,12 +126,16 @@
 
     if (opts.mode === 'blank') {
       var bt = opts.blank;
+      var who = opts.board;
       var blank = bt.sameShape && opts.board
-        ? M.boardFromTiles(opts.board.tiles)
-        : M.createBoard(bt.tx, bt.ty);
+        ? M.boardFromTiles(opts.board.tiles, who)
+        : M.createBoard(bt.tx, bt.ty, who);
       var be = M.extent(blank);
       var landscape = be.mx >= be.my;
-      var legend = bt.legend ? R.legendHTML(['wall', 'oneway', 'star', 'sound', 'finish', 'start']) : '';
+      var keys = M.isAim(blank)
+        ? ['start', 'finish', 'wall', 'orange', 'blue', 'ball', 'tag']
+        : ['wall', 'oneway', 'star', 'sound', 'finish', 'start'];
+      var legend = bt.legend ? R.legendHTML(keys) : '';
       var svg = fitted(R.boardSVG(blank, { eco: opts.eco, noHits: true }), landscape, !!legend);
       setPageOrientation(landscape);
       for (var i = 0; i < bt.copies; i++) {
@@ -84,12 +147,14 @@
     } else {
       var b = opts.board;
       var land = M.cols(b) >= M.rows(b);
-      var legend2 = R.legendHTML(M.legendItems(b));
+      var legend2 = R.legendHTML(M.legendItems(b)) + (M.isAim(b) ? jobsHTML(b) : '');
       var svg2 = fitted(R.boardSVG(b, { eco: opts.eco, noHits: true }), land, !!legend2);
       setPageOrientation(land);
       html += page(head(b.title || 'Bludiště', 'Jméno: ______________________     Třída: __________') + body(svg2, legend2));
 
-      if (opts.solution) {
+      if (opts.solution && M.isAim(b)) {
+        html += aimSolutionPages(b, land, opts.eco);
+      } else if (opts.solution) {
         var sol = S.solve(b);
         if (sol.ok) {
           var svg3 = fitted(R.boardSVG(b, { eco: opts.eco, noHits: true, solution: sol.path, stops: sol.stops }), land, true);
