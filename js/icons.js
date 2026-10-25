@@ -17,7 +17,13 @@
     blue: '#2a48c6',
     ink: '#141414',
     botGreen: '#8cc63f',
-    botGreenDark: '#4f8c17'
+    botGreenDark: '#4f8c17',
+    barrelOrange: '#ef7d16',
+    barrelOrangeDark: '#b35d05',
+    barrelBlue: '#2a6fd6',
+    barrelBlueDark: '#17458c',
+    purple: '#713a94',
+    purpleDark: '#4a2363'
   };
 
   /* hvězda o daném počtu cípů */
@@ -29,6 +35,13 @@
       d += (i ? 'L' : 'M') + (cx + Math.cos(a) * r).toFixed(2) + ' ' + (cy + Math.sin(a) * r).toFixed(2) + ' ';
     }
     return d + 'Z';
+  }
+
+  /* sud shora: obroučka, barevné víko a uprostřed úchyt pro magnet */
+  function barrel(col, dark) {
+    return '<circle cx="50" cy="50" r="33" fill="#f7f7f7" stroke="' + C.ink + '" stroke-width="4"/>' +
+      '<circle cx="50" cy="50" r="24" fill="' + col + '" stroke="' + dark + '" stroke-width="3"/>' +
+      '<circle cx="50" cy="50" r="8" fill="' + dark + '"/>';
   }
 
   /* blokovaná šipka mířící doprava, otočí se kolem středu */
@@ -69,6 +82,29 @@
         '" stroke="' + C.goldDark + '" stroke-width="4" stroke-linejoin="round"/>' +
         '<rect x="38" y="74" width="24" height="7" rx="3" fill="#6b6b6b"/>' +
         '<rect x="41" y="84" width="18" height="7" rx="3" fill="#6b6b6b"/>';
+    },
+
+    orange: function () { return barrel(C.barrelOrange, C.barrelOrangeDark); },
+
+    blue: function () { return barrel(C.barrelBlue, C.barrelBlueDark); },
+
+    ball: function () {
+      return '<circle cx="50" cy="50" r="31" fill="#ffffff" stroke="' + C.ink + '" stroke-width="4"/>' +
+        '<path d="M50 39 L62.4 48 L57.6 62.5 L42.4 62.5 L37.6 48 Z" fill="' + C.ink + '"/>' +
+        '<g stroke="' + C.ink + '" stroke-width="3" stroke-linecap="round">' +
+        '<line x1="50" y1="39" x2="50" y2="22"/><line x1="62.4" y1="48" x2="77" y2="43"/>' +
+        '<line x1="57.6" y1="62.5" x2="66" y2="76"/><line x1="42.4" y1="62.5" x2="34" y2="76"/>' +
+        '<line x1="37.6" y1="48" x2="23" y2="43"/></g>';
+    },
+
+    /* AprilTag jako cedule se svým číslem – podle něj ho robot pozná */
+    tag: function (it) {
+      var n = it && it.n != null ? (it.n | 0) : 0;
+      return '<rect x="14" y="14" width="72" height="72" rx="11" fill="' + C.purple +
+        '" stroke="' + C.purpleDark + '" stroke-width="4"/>' +
+        '<rect x="26" y="26" width="48" height="48" rx="4" fill="#ffffff"/>' +
+        '<text x="50" y="64" text-anchor="middle" font-size="40" font-weight="700" ' +
+        'font-family="sans-serif" fill="' + C.purpleDark + '">' + n + '</text>';
     },
 
     finish: function () {
