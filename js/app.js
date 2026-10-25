@@ -604,6 +604,7 @@
       (aim ? ', jedno políčko ' + M.cellMm(state.board) + ' mm' : '') +
       '. Kliknutím ji přidáš nebo ubereš.';
     if (!aim) { state.camera = false; $('camera-on').checked = false; }
+    $('camera-note').hidden = !state.camera;
     if (aim) renderJobs();
   }
 
@@ -642,6 +643,7 @@
 
     $('camera-on').addEventListener('change', function () {
       state.camera = this.checked;
+      $('camera-note').hidden = !state.camera;
       renderAll();
     });
   }
@@ -652,32 +654,56 @@
    * tedy plyne přímo z nákladu a nemusí se nikde vybírat. */
   function jobKind(cargo) { return cargo === 'ball' ? 'kick' : 'deliver'; }
 
+  function cargoOptions(selected) {
+    return M.CARGO.map(function (c) {
+      return '<option value="' + c.id + '"' + (c.id === selected ? ' selected' : '') +
+        '>' + c.label + '</option>';
+    }).join('');
+  }
+
+  /** Nabídka zastávek: tagy z desky a navíc ta, kterou úkol používá teď. */
+  function tagOptions(selected, kick) {
+    var tags = M.tagNumbers(state.board), word = kick ? 'branka ' : 'zastávka ';
+    var list = tags.slice();
+    if (selected != null && list.indexOf(selected) < 0) list.push(selected);
+    list.sort(function (a, z) { return a - z; });
+    return list.map(function (n) {
+      var missing = tags.indexOf(n) < 0;
+      return '<option value="' + n + '"' + (n === selected ? ' selected' : '') + '>' +
+        word + n + (missing ? ' (chybí)' : '') + '</option>';
+    }).join('');
+  }
+
   function renderJobs() {
     var list = M.jobs(state.board), html = '';
     list.forEach(function (j, i) {
       var ok = M.jobOk(state.board, j);
-      html += '<li class="job' + (ok ? '' : ' job-bad') + '">' +
+      html += '<li class="job' + (ok ? '' : ' job-bad') + '" title="' +
+        escAttr(M.jobText(j)) + '">' +
         '<span class="job-no">' + (i + 1) + '</span>' +
-        '<span class="job-text">' + escAttr(M.jobText(j)) +
-        (ok ? '' : '<small>chybí na desce</small>') + '</span>' +
+        '<select class="job-sel" data-job="' + i + '" data-field="cargo" ' +
+        'aria-label="Náklad">' + cargoOptions(j.cargo) + '</select>' +
+        '<select class="job-sel" data-job="' + i + '" data-field="tag" ' +
+        'aria-label="Zastávka">' + tagOptions(j.tag, j.kind === 'kick') + '</select>' +
         '<button type="button" class="job-del" data-job="' + i +
         '" title="Smazat úkol">&times;</button></li>';
     });
     $('joblist').innerHTML = html;
 
     var tags = M.tagNumbers(state.board), sel = $('job-tag'), keep = sel.value;
-    sel.innerHTML = tags.map(function (n) {
-      return '<option value="' + n + '">zastávka ' + n + '</option>';
-    }).join('');
+    sel.innerHTML = tagOptions(null, false);
     if (tags.indexOf(+keep) >= 0) sel.value = keep;
     sel.disabled = !tags.length;
     $('btn-job-add').disabled = !tags.length || list.length >= M.MAX_JOBS;
 
+    var bad = list.filter(function (j) { return !M.jobOk(state.board, j); }).length;
     $('job-note').textContent = !tags.length
       ? 'Nejdřív polož na desku AprilTag, pak z něj udělej zastávku.'
-      : list.length >= M.MAX_JOBS
-        ? 'Víc než ' + M.MAX_JOBS + ' úkolů na jednu desku nedávej.'
-        : 'Náklad robot sebere průjezdem, u zastávky ho položí.';
+      : bad
+        ? 'Úkol v červeném rámečku nejde splnit, na desce mu chybí náklad nebo zastávka.'
+        : list.length >= M.MAX_JOBS
+          ? 'Víc než ' + M.MAX_JOBS + ' úkolů na jednu desku nedávej.'
+          : 'Náklad robot sebere průjezdem, u zastávky ho položí. Míček se kope do branky.';
   }
 
   function bindJobs() {
@@ -705,6 +731,21 @@
       if (!del) return;
       snapshot();
       M.removeJob(state.board, +del.dataset.job);
+      clearSolution();
+      renderJobs();
+      changed(true);
+    });
+
+    // úkol se dá přímo v řádku změnit: jiný náklad, jiná zastávka
+    $('joblist').addEventListener('change', function (e) {
+      var sel = e.target.closest('.job-sel');
+      if (!sel) return;
+      var i = +sel.dataset.job, old = M.jobs(state.board)[i];
+      if (!old) return;
+      var cargo = sel.dataset.field === 'cargo' ? sel.value : old.cargo;
+      var tag = sel.dataset.field === 'tag' ? +sel.value : old.tag;
+      snapshot();
+      M.jobs(state.board)[i] = M.makeJob(jobKind(cargo), cargo, tag);
       clearSolution();
       renderJobs();
       changed(true);

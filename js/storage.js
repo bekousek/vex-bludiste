@@ -42,15 +42,15 @@
     return tiles;
   }
 
-  /** Úkoly doručení ze souboru – jen ty, které na desce dávají smysl. */
+  /** Úkoly doručení ze souboru. Úkol, kterému na desce chybí náklad nebo zastávka,
+   * se nezahazuje – aplikace ho označí, stejně jako při rozdělané práci. */
   function readJobs(src, board) {
     var M = VEX.model;
     if (!M.isAim(board) || !src || !Array.isArray(src.jobs)) return [];
     var out = [];
     src.jobs.slice(0, M.MAX_JOBS).forEach(function (j) {
       if (!j || typeof j !== 'object') return;
-      var job = M.makeJob(j.kind, j.cargo, j.tag);
-      if (M.jobOk(board, job)) out.push(job);
+      out.push(M.makeJob(j.kind, j.cargo, j.tag));
     });
     return out;
   }
