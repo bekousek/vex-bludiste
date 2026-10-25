@@ -13,7 +13,8 @@
   /** Smí robot projet políčkem směrem d? */
   function passes(item, d) {
     if (!item) return true;
-    if (item.t === 'wall') return false;
+    var def = M.ITEMS[item.t];
+    if (def && def.blocks) return false;
     if (item.t === 'oneway') return item.d === d;
     return true;
   }
@@ -29,10 +30,10 @@
     }
     for (var k in b.cells) {
       var p = k.split(','); c = +p[0]; r = +p[1];
-      var it = b.cells[k];
+      var it = b.cells[k], def = M.ITEMS[it.t];
       if (c >= w || r >= h) continue;
       var i = r * w + c;
-      if (it.t === 'wall') block[i] = 1;
+      if (def && def.blocks) block[i] = 1;      // zákaz vjezdu i AprilTag
       else if (it.t === 'oneway') way[i] = it.d | 0;
     }
     return { w: w, h: h, n: n, block: block, way: way };
