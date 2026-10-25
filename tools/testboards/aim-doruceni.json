@@ -1,0 +1,18 @@
+{
+  "v": 2,
+  "robot": "aim",
+  "tiles": { "0,0": 1, "1,0": 1, "0,1": 1, "1,1": 1 },
+  "cells": {
+    "2,5": { "t": "start", "d": 0 },
+    "1,3": { "t": "orange" },
+    "4,3": { "t": "blue" },
+    "0,0": { "t": "tag", "n": 1 },
+    "5,0": { "t": "tag", "n": 2 },
+    "3,1": { "t": "wall" }
+  },
+  "jobs": [
+    { "kind": "deliver", "cargo": "orange", "tag": 1 },
+    { "kind": "deliver", "cargo": "blue", "tag": 2 }
+  ],
+  "title": "Dvě doručení"
+}

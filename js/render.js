@@ -5,8 +5,8 @@
   var VEX = (window.VEX = window.VEX || {});
   var M = VEX.model, I = VEX.icons;
 
-  var CELL = 100;   // vnitřní souřadnice na jedno políčko
-  var TS = 3 * CELL; // strana dlaždice
+  var CELL = 100;        // vnitřní souřadnice na jedno políčko
+  var TS = M.TILE * CELL; // strana dlaždice
   var PAD = 26;     // rám kolem celé desky
   var INSET = 6;    // odsazení rámečku políčka
   var GAP = 15;     // mezera uprostřed každé strany rámečku
@@ -93,8 +93,8 @@
   function eachCell(b, fn) {
     var tiles = M.tileList(b), i, dx, dy;
     for (i = 0; i < tiles.length; i++) {
-      for (dy = 0; dy < 3; dy++) {
-        for (dx = 0; dx < 3; dx++) fn(tiles[i].x * 3 + dx, tiles[i].y * 3 + dy);
+      for (dy = 0; dy < M.TILE; dy++) {
+        for (dx = 0; dx < M.TILE; dx++) fn(tiles[i].x * M.TILE + dx, tiles[i].y * M.TILE + dy);
       }
     }
   }
@@ -141,9 +141,56 @@
     return s + '</g>';
   }
 
+  /* Vrstva „co vidí robot“ – výseč zorného pole kamery ze startu.
+   * Každé SVG má vlastní číslo ořezu, aby si dvě desky na stránce nelezly do zelí. */
+  var clipSeq = 0;
+
+  function cameraLayer(b, look) {
+    if (!look || !look.ok) return '';
+    var cx = PAD + look.from.c * CELL + CELL / 2;
+    var cy = PAD + look.from.r * CELL + CELL / 2;
+    var e = M.extent(b);
+    var W = (e.mx + 1) * TS, H = (e.my + 1) * TS;
+    var R = Math.sqrt(W * W + H * H) + CELL;
+
+    function pt(a) {
+      var rad = a * Math.PI / 180;
+      return (cx + R * Math.sin(rad)).toFixed(1) + ' ' + (cy - R * Math.cos(rad)).toFixed(1);
+    }
+
+    var id = 'camclip' + (++clipSeq);
+    var clip = '<clipPath id="' + id + '">' + M.tileList(b).map(function (t) {
+      return '<rect x="' + (PAD + t.x * TS) + '" y="' + (PAD + t.y * TS) +
+        '" width="' + TS + '" height="' + TS + '"/>';
+    }).join('') + '</clipPath>';
+
+    var s = '<g class="camera-layer" pointer-events="none">' + clip +
+      '<path d="M' + cx + ' ' + cy + ' L' + pt(look.dir * 90 - look.fov / 2) +
+      ' A' + R + ' ' + R + ' 0 0 1 ' + pt(look.dir * 90 + look.fov / 2) + ' Z"' +
+      ' clip-path="url(#' + id + ')" fill="#7b4fd6" fill-opacity="0.13"' +
+      ' stroke="#7b4fd6" stroke-opacity="0.35" stroke-width="3"/>';
+
+    look.items.forEach(function (o) {
+      var x = PAD + o.c * CELL + CELL / 2, y = PAD + o.r * CELL + CELL / 2;
+      var col = o.visible ? '#1f8a4c' : '#c62828';
+      var def = M.ITEMS[o.item.t] || {};
+      var text = o.visible
+        ? def.legend + (o.item.n != null ? ' ' + o.item.n : '') +
+          ', ' + (o.bearing > 0 ? '+' : '') + o.bearing + '°'
+        : o.why;
+      var ty = y - 56 < PAD + 18 ? y + 70 : y - 56;
+      s += '<circle cx="' + x + '" cy="' + y + '" r="46" fill="none" stroke="' + col +
+        '" stroke-width="6"' + (o.visible ? '' : ' stroke-dasharray="14 10"') + '/>' +
+        '<text x="' + x + '" y="' + ty + '" text-anchor="middle" font-size="22" font-weight="700"' +
+        ' font-family="sans-serif" fill="' + col + '" stroke="#fff" stroke-width="5"' +
+        ' paint-order="stroke">' + text + '</text>';
+    });
+    return s + '</g>';
+  }
+
   /**
    * Sestaví SVG desky.
-   * opts: { eco, solution:[cells], stops:[cells], noHits, cssClass }
+   * opts: { eco, solution:[cells], stops:[cells], camera, noHits, cssClass }
    */
   function boardSVG(b, opts) {
     opts = opts || {};
@@ -155,6 +202,7 @@
       plate(b, opts.eco) +
       seams(b, opts.eco) +
       cellsLayer(b) +
+      cameraLayer(b, opts.camera) +
       solutionLayer(opts.solution, opts.stops) +
       (opts.noHits ? '' : hitLayer(b)) +
       '</svg>';
@@ -192,6 +240,7 @@
     boardSVG: boardSVG,
     cellContent: cellContent,
     solutionLayer: solutionLayer,
+    cameraLayer: cameraLayer,
     legendHTML: legendHTML
   };
 })();

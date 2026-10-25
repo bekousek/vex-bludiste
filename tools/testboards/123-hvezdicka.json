@@ -1,0 +1,13 @@
+{
+  "v": 2,
+  "tiles": { "0,0": 1, "1,0": 1, "0,1": 1, "1,1": 1 },
+  "cells": {
+    "0,5": { "t": "start", "d": 0 },
+    "5,0": { "t": "finish" },
+    "3,3": { "t": "star" },
+    "2,2": { "t": "wall" },
+    "4,4": { "t": "wall" },
+    "1,1": { "t": "oneway", "d": 1 }
+  },
+  "title": "Stará deska 123 bez údaje o robotovi"
+}

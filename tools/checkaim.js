@@ -13,7 +13,8 @@ const boardsDir = path.join(__dirname, 'testboards');
 
 const sandbox = { window: { VEX: {} }, console, Math, Date, JSON };
 vm.createContext(sandbox);
-['js/model.js', 'js/solver.js', 'js/aimsolver.js', 'js/generator.js', 'js/aimgenerator.js']
+['js/model.js', 'js/solver.js', 'js/aimsolver.js', 'js/aimvision.js',
+  'js/storage.js', 'js/generator.js', 'js/aimgenerator.js']
   .forEach(function (f) {
     const file = path.join(root, f);
     if (!fs.existsSync(file)) return;

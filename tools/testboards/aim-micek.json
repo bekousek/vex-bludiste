@@ -1,0 +1,18 @@
+{
+  "v": 2,
+  "robot": "aim",
+  "tiles": { "0,0": 1, "1,0": 1, "0,1": 1, "1,1": 1 },
+  "cells": {
+    "3,5": { "t": "start", "d": 0 },
+    "3,2": { "t": "ball" },
+    "2,1": { "t": "orange" },
+    "0,2": { "t": "tag", "n": 0 },
+    "5,0": { "t": "tag", "n": 1 },
+    "1,4": { "t": "wall" }
+  },
+  "jobs": [
+    { "kind": "kick", "cargo": "ball", "tag": 0 },
+    { "kind": "deliver", "cargo": "orange", "tag": 1 }
+  ],
+  "title": "Míček do branky a sud na zastávku"
+}

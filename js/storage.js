@@ -42,26 +42,45 @@
     return tiles;
   }
 
+  /** Úkoly doručení ze souboru – jen ty, které na desce dávají smysl. */
+  function readJobs(src, board) {
+    var M = VEX.model;
+    if (!M.isAim(board) || !src || !Array.isArray(src.jobs)) return [];
+    var out = [];
+    src.jobs.slice(0, M.MAX_JOBS).forEach(function (j) {
+      if (!j || typeof j !== 'object') return;
+      var job = M.makeJob(j.kind, j.cargo, j.tag);
+      if (M.jobOk(board, job)) out.push(job);
+    });
+    return out;
+  }
+
   function sanitize(b) {
     var M = VEX.model;
     // Vlastní ikony přibalené k souboru nebo odkazu doplníme do knihovny,
     // jinak by se u příjemce místo obrázku ukázal otazník.
     if (b.icons && VEX.userIcons) VEX.userIcons.merge(b.icons);
-    var out = M.boardFromTiles(readTiles(b));
+    // Starší uložené desky robota neznají, berou se jako VEX 123 / GO.
+    var out = M.boardFromTiles(readTiles(b), b.robot);
     out.title = typeof b.title === 'string' ? b.title.slice(0, 60) : '';
     for (var k in b.cells) {
       if (!/^\d+,\d+$/.test(k)) continue;
       var it = b.cells[k];
       if (!it || !M.ITEMS[it.t]) continue;
+      if (!M.itemFits(it.t, out)) continue;      // prvek cizího režimu na desku nepatří
       out.cells[k] = M.makeItem(it.t, it);
     }
     M.trim(out);
+    out.jobs = readJobs(b, out);
     return out;
   }
 
   /** Deska i s obrázky, které jsou na ní použité – pro soubor a odkaz. */
   function withIcons(board) {
-    var out = { v: board.v, tiles: board.tiles, cells: board.cells, title: board.title };
+    var out = {
+      v: board.v, robot: VEX.model.robotId(board), tiles: board.tiles,
+      cells: board.cells, jobs: VEX.model.jobs(board), title: board.title
+    };
     var used = VEX.userIcons ? VEX.userIcons.usedBy(board) : null;
     if (used) out.icons = used;
     return out;
