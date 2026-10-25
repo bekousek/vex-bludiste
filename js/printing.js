@@ -26,13 +26,14 @@
   /* Tisková plocha A4 po 10mm okrajích, zmenšená o hlavičku a legendu. */
   var A4 = { long: 277, short: 190 }, HEAD_MM = 26, LEGEND_MM = 50;
 
-  /** Nastaví desce pevný rozměr v mm, aby se vždy vešla na stránku. */
-  function fitted(svg, landscape, withLegend) {
+  /** Nastaví desce pevný rozměr v mm, aby se vždy vešla na stránku.
+   * extraMm ubere místo, které nad deskou zabere něco dalšího (seznam úkolů). */
+  function fitted(svg, landscape, withLegend, extraMm) {
     var m = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(svg);
     if (!m) return svg;
     var vw = +m[1], vh = +m[2];
     var availW = (landscape ? A4.long : A4.short) - (withLegend ? LEGEND_MM : 0);
-    var availH = (landscape ? A4.short : A4.long) - HEAD_MM;
+    var availH = (landscape ? A4.short : A4.long) - HEAD_MM - (extraMm || 0);
     var k = Math.min(availW / vw, availH / vh);
     return svg.replace('<svg ', '<svg style="width:' + (vw * k).toFixed(1) +
       'mm;height:' + (vh * k).toFixed(1) + 'mm" ');
@@ -59,12 +60,20 @@
 
   /* ---------- režim AIM ---------- */
 
-  function jobsHTML(b) {
+  /* Úkoly patří k zadání stejně jako deska, proto mají vlastní pruh pod hlavičkou,
+   * ne řádek navíc v úzkém sloupci vysvětlivek. */
+  function tasksHTML(b) {
     var list = M.jobs(b);
     if (!list.length) return '';
-    var s = '<h2>Úkoly</h2><ol class="p-jobs">';
+    var s = '<section class="p-tasks"><h2>Úkoly</h2><ol class="p-jobs">';
     list.forEach(function (j) { s += '<li>' + esc(M.jobText(j)) + '</li>'; });
-    return s + '</ol>';
+    return s + '</ol></section>';
+  }
+
+  /** Kolik milimetrů výšky si pruh s úkoly vezme (rámeček, nadpis, řádky, mezera). */
+  function tasksHeight(b) {
+    var n = M.jobs(b).length;
+    return n ? Math.ceil(17 + n * 6.4) : 0;
   }
 
   function compareHTML(variants) {
@@ -97,14 +106,16 @@
     if (!res.ok) return '';
     var counts = res.variants.map(function (v) { return v.count; });
     var first = res.variants[0];
+    var tasks = tasksHTML(b);
     var svg = fitted(R.boardSVG(b, {
       eco: eco, noHits: true, solution: first.path, stops: first.stops
-    }), land, true);
+    }), land, true, tasksHeight(b));
 
     return page(
       head('Řešení: ' + (b.title || 'Bludiště'),
         'Tlačítka ' + counts[0] + ' příkazů, bloky bez otáčení ' + counts[1] +
         ', se šikmou jízdou ' + counts[2] + '. Na desce je cesta podle tlačítek.') +
+      tasks +
       '<div class="p-body"><div class="p-board">' + svg + '</div>' +
       '<aside class="p-legend">' + compareHTML(res.variants) + '</aside></div>',
       'p-solution'
@@ -147,10 +158,13 @@
     } else {
       var b = opts.board;
       var land = M.cols(b) >= M.rows(b);
-      var legend2 = R.legendHTML(M.legendItems(b)) + (M.isAim(b) ? jobsHTML(b) : '');
-      var svg2 = fitted(R.boardSVG(b, { eco: opts.eco, noHits: true }), land, !!legend2);
+      var legend2 = R.legendHTML(M.legendItems(b));
+      var tasks = M.isAim(b) ? tasksHTML(b) : '';
+      var svg2 = fitted(R.boardSVG(b, { eco: opts.eco, noHits: true }), land, !!legend2,
+        tasks ? tasksHeight(b) : 0);
       setPageOrientation(land);
-      html += page(head(b.title || 'Bludiště', 'Jméno: ______________________     Třída: __________') + body(svg2, legend2));
+      html += page(head(b.title || 'Bludiště', 'Jméno: ______________________     Třída: __________') +
+        tasks + body(svg2, legend2));
 
       if (opts.solution && M.isAim(b)) {
         html += aimSolutionPages(b, land, opts.eco);

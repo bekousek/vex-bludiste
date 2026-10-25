@@ -60,7 +60,8 @@ Políčko s tagem je neprůjezdné, robot zastaví na sousedním políčku a ná
 
 **Úkoly.** K desce patří seznam úkolů typu *Doruč oranžový sud na zastávku 1*. U míčku se
 úkol změní na kop do branky. Pořadí úkolů i to, který ze tří sudů robot použije, si řešitel
-vybere sám. Úkoly se tisknou do zadání.
+vybere sám. Do tisku jdou úkoly v rámečku nad desku, na zadání i na list s řešením, protože
+bez nich deska nedává smysl.
 
 **Tři varianty programu.** Tatáž deska se spočítá třikrát a výsledky se ukážou vedle sebe:
 

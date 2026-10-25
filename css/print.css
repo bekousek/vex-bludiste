@@ -94,14 +94,28 @@
 
   /* ---- režim AIM: úkoly, porovnání a tři programy vedle sebe ---- */
 
-  .p-legend h2 + h2, .p-jobs + h2, .legend + h2 { margin-top: 6mm; }
+  /* Úkoly stojí pod hlavičkou přes celou šířku, patří k zadání stejně jako deska. */
+  .p-tasks {
+    flex: none;
+    margin-bottom: 4mm;
+    padding: 3mm 4mm;
+    border: 1.2pt solid #713a94;
+    border-radius: 2mm;
+  }
+  .p-tasks h2 {
+    margin: 0 0 2mm;
+    font: 700 10pt/1.2 "Segoe UI", system-ui, Arial, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: .5pt;
+    color: #713a94;
+  }
 
   .p-jobs {
     margin: 0;
-    padding-left: 5mm;
-    font: 10pt/1.35 "Segoe UI", system-ui, Arial, sans-serif;
+    padding-left: 6mm;
+    font: 11pt/1.4 "Segoe UI", system-ui, Arial, sans-serif;
   }
-  .p-jobs li { margin-bottom: 1.5mm; }
+  .p-jobs li { margin-bottom: 1mm; }
 
   .p-compare { display: flex; flex-direction: column; gap: 4mm; }
   .p-cmp { font: 9.5pt/1.25 "Segoe UI", system-ui, Arial, sans-serif; }
